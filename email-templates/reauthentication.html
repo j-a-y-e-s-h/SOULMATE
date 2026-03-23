@@ -1,0 +1,72 @@
+<!-- Supabase Auth -> Email Templates -> Reauthentication -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Confirm it is you - Soulmate</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0e8de;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#f0e8de;padding:48px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:520px;background-color:#fffaf5;border-radius:24px;overflow:hidden;box-shadow:0 8px 40px rgba(184,79,69,0.12);">
+          <tr>
+            <td style="height:5px;background:linear-gradient(90deg,#b84f45 0%,#d4776e 50%,#c9956b 100%);"></td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:40px 40px 0;">
+              <div style="width:64px;height:64px;background-color:#fdeee9;border-radius:18px;font-size:30px;line-height:64px;text-align:center;border:1.5px solid #f5d0c8;display:inline-block;">
+                &#128274;
+              </div>
+              <p style="margin:14px 0 2px;font-size:13px;letter-spacing:2.5px;text-transform:uppercase;color:#b84f45;font-weight:700;">SOULMATE</p>
+              <p style="margin:0;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#c9956b;">Modern Indian Matchmaking</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 40px 0;"><div style="height:1px;background:linear-gradient(90deg,transparent,#e8d5c4,transparent);"></div></td>
+          </tr>
+          <tr>
+            <td style="padding:32px 40px 0;">
+              <h1 style="margin:0 0 14px;font-size:26px;font-weight:700;color:#1f2330;text-align:center;font-family:Georgia,serif;line-height:1.3;">
+                Confirm it is really you
+              </h1>
+              <p style="margin:0;font-size:15px;line-height:1.75;color:#62584d;text-align:center;">
+                Enter the one-time code below to continue your secure Soulmate action for <strong style="color:#1f2330;">{{ .Email }}</strong>.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:28px 40px 0;">
+              <div style="display:inline-block;padding:16px 28px;border-radius:18px;background-color:#fdf6ef;border:1px solid #f0ddd0;font-size:28px;letter-spacing:8px;font-weight:700;color:#b84f45;">
+                {{ .Token }}
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 40px 0;">
+              <p style="margin:0;font-size:12px;color:#8c7c6c;text-align:center;line-height:1.7;">
+                If your flow uses a confirmation link instead of a code, use this secure URL:<br />
+                <span style="color:#b84f45;word-break:break-all;">{{ .ConfirmationURL }}</span>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:28px 40px 36px;">
+              <p style="margin:0;font-size:12px;color:#b0a090;">
+                &#10084;&nbsp; Soulmate &middot; Modern Indian Matchmaking
+              </p>
+              <p style="margin:6px 0 0;font-size:11px;color:#c8b8a8;line-height:1.6;">
+                This code expires quickly. Never share it with anyone.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="height:4px;background:linear-gradient(90deg,#c9956b 0%,#d4776e 50%,#b84f45 100%);"></td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

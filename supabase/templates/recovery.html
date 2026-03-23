@@ -1,0 +1,99 @@
+<!-- Copy this HTML into Supabase Auth -> Email Templates -> Reset Password -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reset your Soulmate password</title>
+  </head>
+  <body style="margin:0; padding:0; background:#f6efe6; color:#1f2330; font-family:Georgia, 'Times New Roman', serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6efe6; padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="100%"
+            cellspacing="0"
+            cellpadding="0"
+            style="max-width:640px; overflow:hidden; border-radius:28px; background:#fffaf4; border:1px solid #eadbcc; box-shadow:0 24px 70px rgba(86, 52, 28, 0.10);"
+          >
+            <tr>
+              <td
+                style="padding:40px 40px 28px; background:linear-gradient(135deg, #2f2a2f 0%, #4b403d 55%, #6c5447 100%); color:#ffffff;"
+              >
+                <div
+                  style="display:inline-block; padding:10px 16px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.08); font:700 11px/1.2 Arial, Helvetica, sans-serif; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.80);"
+                >
+                  Soulmate password reset
+                </div>
+                <h1 style="margin:24px 0 0; font-size:42px; line-height:1.08; font-weight:700; color:#ffffff;">
+                  Restore your access with care.
+                </h1>
+                <p style="margin:18px 0 0; max-width:440px; font:400 17px/1.7 Arial, Helvetica, sans-serif; color:rgba(255,255,255,0.82);">
+                  We received a request to reset the password for your Soulmate account. Use the secure button below to choose a new password and return to your conversations safely.
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:36px 40px 18px;">
+                <p style="margin:0; font:700 12px/1.2 Arial, Helvetica, sans-serif; letter-spacing:0.22em; text-transform:uppercase; color:#8c7c6c;">
+                  Requested for
+                </p>
+                <p style="margin:10px 0 0; font:600 18px/1.6 Arial, Helvetica, sans-serif; color:#1f2330;">
+                  {{ .Email }}
+                </p>
+
+                <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:28px;">
+                  <tr>
+                    <td align="center" style="border-radius:999px; background:linear-gradient(135deg, #d9865b 0%, #b84f45 100%);">
+                      <a
+                        href="{{ .ConfirmationURL }}"
+                        style="display:inline-block; padding:16px 28px; font:700 15px/1 Arial, Helvetica, sans-serif; color:#ffffff; text-decoration:none;"
+                      >
+                        Reset my password
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <div style="margin-top:32px; border-radius:22px; background:#fcf8f3; border:1px solid #eadbcc; padding:18px 20px;">
+                  <p style="margin:0; font:700 15px/1.5 Arial, Helvetica, sans-serif; color:#1f2330;">
+                    Security reminder
+                  </p>
+                  <p style="margin:8px 0 0; font:400 14px/1.7 Arial, Helvetica, sans-serif; color:#62584d;">
+                    If you did not request this change, you can safely ignore this email. Your current password will remain active until a new one is saved.
+                  </p>
+                </div>
+
+                <p style="margin:28px 0 0; font:400 13px/1.8 Arial, Helvetica, sans-serif; color:#7a6c60;">
+                  Button not working? Copy and paste this secure link into your browser:
+                </p>
+                <p style="margin:8px 0 0; word-break:break-word; font:400 13px/1.8 Arial, Helvetica, sans-serif; color:#b84f45;">
+                  <a href="{{ .ConfirmationURL }}" style="color:#b84f45; text-decoration:underline;">
+                    {{ .ConfirmationURL }}
+                  </a>
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 40px 36px;">
+                <div style="height:1px; background:#eadbcc; margin:10px 0 22px;"></div>
+                <p style="margin:0; font:700 12px/1.2 Arial, Helvetica, sans-serif; letter-spacing:0.22em; text-transform:uppercase; color:#8c7c6c;">
+                  Soulmate
+                </p>
+                <p style="margin:10px 0 0; font:400 13px/1.8 Arial, Helvetica, sans-serif; color:#7a6c60;">
+                  Modern Indian matchmaking with calmer introductions, family-forward intent, and protected communication.
+                </p>
+                <p style="margin:14px 0 0; font:400 12px/1.7 Arial, Helvetica, sans-serif; color:#9b8d80;">
+                  Sent from {{ .SiteURL }}
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "authentication": {
+    "Confirm sign up": "confirm-signup.html",
+    "Magic link": "magic-link.html",
+    "Reset password": "recovery.html",
+    "Invite user": "invite-user.html",
+    "Change email address": "change-email-address.html",
+    "Reauthentication": "reauthentication.html"
+  },
+  "notifications": {
+    "Password changed": "password-changed-notification.html",
+    "Email address changed": "email-address-changed-notification.html",
+    "Phone number changed": "phone-number-changed-notification.html",
+    "Identity linked": "identity-linked-notification.html",
+    "Identity unlinked": "identity-unlinked-notification.html",
+    "MFA method added": "mfa-method-added-notification.html",
+    "MFA method removed": "mfa-method-removed-notification.html"
+  }
+}

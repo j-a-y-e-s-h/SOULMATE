@@ -1,0 +1,104 @@
+{
+  "authentication": [
+    {
+      "dashboardLabel": "Confirm sign up",
+      "file": "confirm-signup.html",
+      "subjectKey": "mailer_subjects_confirmation",
+      "subject": "Confirm your email - Soulmate",
+      "contentKey": "mailer_templates_confirmation_content"
+    },
+    {
+      "dashboardLabel": "Magic link",
+      "file": "magic-link.html",
+      "subjectKey": "mailer_subjects_magic_link",
+      "subject": "Your Soulmate sign-in link",
+      "contentKey": "mailer_templates_magic_link_content"
+    },
+    {
+      "dashboardLabel": "Reset password",
+      "file": "recovery.html",
+      "subjectKey": "mailer_subjects_recovery",
+      "subject": "Reset your Soulmate password",
+      "contentKey": "mailer_templates_recovery_content"
+    },
+    {
+      "dashboardLabel": "Invite user",
+      "file": "invite-user.html",
+      "subjectKey": "mailer_subjects_invite",
+      "subject": "Your Soulmate invitation",
+      "contentKey": "mailer_templates_invite_content"
+    },
+    {
+      "dashboardLabel": "Change email address",
+      "file": "change-email-address.html",
+      "subjectKey": "mailer_subjects_email_change",
+      "subject": "Confirm your email change - Soulmate",
+      "contentKey": "mailer_templates_email_change_content"
+    },
+    {
+      "dashboardLabel": "Reauthentication",
+      "file": "reauthentication.html",
+      "subjectKey": "mailer_subjects_reauthentication",
+      "subject": "Confirm it is you - Soulmate",
+      "contentKey": "mailer_templates_reauthentication_content"
+    }
+  ],
+  "notifications": [
+    {
+      "dashboardLabel": "Password changed",
+      "file": "password-changed-notification.html",
+      "enabledKey": "mailer_notifications_password_changed_enabled",
+      "subjectKey": "mailer_subjects_password_changed_notification",
+      "subject": "Your password was changed - Soulmate",
+      "contentKey": "mailer_templates_password_changed_notification_content"
+    },
+    {
+      "dashboardLabel": "Email address changed",
+      "file": "email-address-changed-notification.html",
+      "enabledKey": "mailer_notifications_email_changed_enabled",
+      "subjectKey": "mailer_subjects_email_changed_notification",
+      "subject": "Your email address was changed - Soulmate",
+      "contentKey": "mailer_templates_email_changed_notification_content"
+    },
+    {
+      "dashboardLabel": "Phone number changed",
+      "file": "phone-number-changed-notification.html",
+      "enabledKey": "mailer_notifications_phone_changed_enabled",
+      "subjectKey": "mailer_subjects_phone_changed_notification",
+      "subject": "Your phone number was changed - Soulmate",
+      "contentKey": "mailer_templates_phone_changed_notification_content"
+    },
+    {
+      "dashboardLabel": "Identity linked",
+      "file": "identity-linked-notification.html",
+      "enabledKey": "mailer_notifications_identity_linked_enabled",
+      "subjectKey": "mailer_subjects_identity_linked_notification",
+      "subject": "A sign-in method was linked - Soulmate",
+      "contentKey": "mailer_templates_identity_linked_notification_content"
+    },
+    {
+      "dashboardLabel": "Identity unlinked",
+      "file": "identity-unlinked-notification.html",
+      "enabledKey": "mailer_notifications_identity_unlinked_enabled",
+      "subjectKey": "mailer_subjects_identity_unlinked_notification",
+      "subject": "A sign-in method was removed - Soulmate",
+      "contentKey": "mailer_templates_identity_unlinked_notification_content"
+    },
+    {
+      "dashboardLabel": "MFA method added",
+      "file": "mfa-method-added-notification.html",
+      "enabledKey": "mailer_notifications_mfa_factor_enrolled_enabled",
+      "subjectKey": "mailer_subjects_mfa_factor_enrolled_notification",
+      "subject": "A security method was added - Soulmate",
+      "contentKey": "mailer_templates_mfa_factor_enrolled_notification_content"
+    },
+    {
+      "dashboardLabel": "MFA method removed",
+      "file": "mfa-method-removed-notification.html",
+      "enabledKey": "mailer_notifications_mfa_factor_unenrolled_enabled",
+      "subjectKey": "mailer_subjects_mfa_factor_unenrolled_notification",
+      "subject": "A security method was removed - Soulmate",
+      "contentKey": "mailer_templates_mfa_factor_unenrolled_notification_content"
+    }
+  ]
+}

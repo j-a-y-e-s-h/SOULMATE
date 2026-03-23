@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment variables — never commit real secrets
+.env
+.env.local
+.env.*.local
+
+# Production builds
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+vite-*.log
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+.idea/
+.claude/
+
+# Type checking cache
+*.tsbuildinfo

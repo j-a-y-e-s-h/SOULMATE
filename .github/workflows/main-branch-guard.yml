@@ -1,0 +1,21 @@
+name: Main Branch Guard
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  owner-only-direct-push:
+    if: github.actor != 'j-a-y-e-s-h'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block non-owner direct pushes
+        run: |
+          echo "Direct pushes to the protected branch must come from @j-a-y-e-s-h."
+          echo "Use a pull request and let the owner review and merge it."
+          exit 1

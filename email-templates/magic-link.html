@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Soulmate sign-in link</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0e8de;font-family:Arial,sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+         style="background-color:#f0e8de;padding:48px 16px;">
+    <tr>
+      <td align="center">
+
+        <!-- Card -->
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+               style="max-width:520px;background-color:#fffaf5;border-radius:24px;
+                      overflow:hidden;box-shadow:0 8px 40px rgba(184,79,69,0.12);">
+
+          <!-- Top accent bar -->
+          <tr>
+            <td style="height:5px;background:linear-gradient(90deg,#b84f45 0%,#d4776e 50%,#c9956b 100%);"></td>
+          </tr>
+
+          <!-- Header -->
+          <tr>
+            <td align="center" style="padding:40px 40px 0;">
+              <table cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                  <td align="center"
+                      style="width:64px;height:64px;background-color:#fdeee9;
+                             border-radius:18px;font-size:30px;line-height:64px;
+                             text-align:center;border:1.5px solid #f5d0c8;">
+                    &#10084;
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:14px 0 2px;font-size:13px;letter-spacing:2.5px;
+                        text-transform:uppercase;color:#b84f45;font-weight:700;">
+                SOULMATE
+              </p>
+              <p style="margin:0;font-size:11px;letter-spacing:1.5px;
+                        text-transform:uppercase;color:#c9956b;">
+                Modern Indian Matchmaking
+              </p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:28px 40px 0;">
+              <div style="height:1px;background:linear-gradient(90deg,transparent,#e8d5c4,transparent);"></div>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px 40px 0;">
+              <h1 style="margin:0 0 14px;font-size:26px;font-weight:700;
+                         color:#1f2330;text-align:center;font-family:Georgia,serif;
+                         line-height:1.3;">
+                Your sign-in link is ready
+              </h1>
+              <p style="margin:0;font-size:15px;line-height:1.75;
+                        color:#62584d;text-align:center;">
+                Click the button below to sign in to your Soulmate account
+                instantly — no password needed.
+                This link is secure and expires in&nbsp;<strong style="color:#1f2330;">1&nbsp;hour</strong>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- CTA Button -->
+          <tr>
+            <td align="center" style="padding:32px 40px 28px;">
+              <a href="{{ .ConfirmationURL }}"
+                 style="display:inline-block;padding:16px 48px;
+                        background:linear-gradient(135deg,#b84f45 0%,#c9604f 100%);
+                        color:#ffffff;font-size:16px;
+                        font-weight:700;text-decoration:none;border-radius:50px;
+                        letter-spacing:0.4px;
+                        box-shadow:0 6px 24px rgba(184,79,69,0.38);">
+                Sign In to Soulmate &nbsp;&rarr;
+              </a>
+            </td>
+          </tr>
+
+          <!-- Alt link -->
+          <tr>
+            <td style="padding:0 40px 10px;">
+              <p style="margin:0;font-size:12px;color:#8c7c6c;text-align:center;line-height:1.6;">
+                Button not working? Paste this link into your browser:
+              </p>
+              <p style="margin:6px 0 0;font-size:11px;color:#b84f45;text-align:center;word-break:break-all;">
+                {{ .ConfirmationURL }}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:24px 40px 0;">
+              <div style="height:1px;background:linear-gradient(90deg,transparent,#e8d5c4,transparent);"></div>
+            </td>
+          </tr>
+
+          <!-- Security notice -->
+          <tr>
+            <td style="padding:20px 40px 0;">
+              <table cellpadding="0" cellspacing="0" role="presentation" width="100%"
+                     style="background-color:#fdf6ef;border-radius:14px;border:1px solid #f0ddd0;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="margin:0 0 5px;font-size:12px;font-weight:700;
+                              color:#8c4a40;
+                              text-transform:uppercase;letter-spacing:0.6px;">
+                      &#128274;&nbsp; Security reminder
+                    </p>
+                    <p style="margin:0;font-size:12px;color:#6b574e;line-height:1.65;">
+                      If you didn't request this link, you can safely ignore this email.
+                      Never share this link with anyone — it grants direct access to your account.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:28px 40px 36px;">
+              <p style="margin:0;font-size:12px;color:#b0a090;">
+                &#10084;&nbsp; Soulmate &middot; Modern Indian Matchmaking
+              </p>
+              <p style="margin:6px 0 0;font-size:11px;color:#c8b8a8;line-height:1.6;">
+                You're receiving this because a sign-in link was requested for&nbsp;{{ .Email }}.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Bottom accent bar -->
+          <tr>
+            <td style="height:4px;background:linear-gradient(90deg,#c9956b 0%,#d4776e 50%,#b84f45 100%);"></td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
