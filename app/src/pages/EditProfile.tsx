@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, Shield, Sparkles } from 'lucide-react';
 import { PhotoUploader } from '@/components/PhotoUploader';
+import { ProfilePhoto } from '@/components/ProfilePhoto';
+import { getProfilePhotoSrc } from '@/components/profilePhotoUtils';
 import {
   communityOptions,
   dietOptions as dietValues,
@@ -676,7 +678,20 @@ export default function EditProfile() {
           <div className="glass-dark p-5 sm:p-8 xl:sticky xl:top-8">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/50">Preview</p>
             <div className="mt-5 overflow-hidden rounded-[28px]">
-              <img src={formData.photos[0] || '/gallery_1.jpg'} alt={formData.name || 'Profile preview'} className="h-72 w-full object-cover" />
+              <ProfilePhoto
+                src={getProfilePhotoSrc(formData.photos)}
+                name={formData.name || 'Profile preview'}
+                gender={user?.gender}
+                alt={formData.name || 'Profile preview'}
+                className="h-72 w-full"
+                mediaClassName="h-full w-full object-cover"
+                placeholderClassName="bg-[radial-gradient(circle_at_top,_rgba(239,193,141,0.18),_transparent_30%),linear-gradient(135deg,#352f35,#221f26)] text-white"
+                label="No photo yet"
+                hint="Your real uploaded photo will appear here."
+                labelClassName="text-white/55"
+                hintClassName="text-white/78"
+                animated
+              />
             </div>
 
             <h2 className="mt-6 text-5xl text-white">

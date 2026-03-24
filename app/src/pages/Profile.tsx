@@ -20,6 +20,8 @@ import {
   TrendingUp,
   Award,
 } from 'lucide-react';
+import { ProfilePhoto } from '@/components/ProfilePhoto';
+import { getProfilePhotoSrc } from '@/components/profilePhotoUtils';
 import { getInterestState, getVerificationLabel } from '@/lib/matchmaking';
 import { formatChoiceLabel } from '@/lib/profileLabels';
 import { useAuthStore } from '@/store/authStore';
@@ -120,8 +122,8 @@ export default function Profile() {
         message: result.outcome === 'matched' ? 'The profile had already liked you.' : 'Your interest request is now pending.',
         href: result.matchId ? `/chat/${result.matchId}` : `/profile/${profileUser.id}`,
       });
-    } catch {
-      toast.error('Something went wrong. Please try again.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     }
   };
 
@@ -139,10 +141,14 @@ export default function Profile() {
       {/* Header & Cover Section */}
       <section className="glass-card overflow-hidden bg-white/80 border-none shadow-2xl relative">
         <div className="relative h-[19rem] w-full group sm:h-[35rem]">
-          <img 
-            src={profileUser.photos[activePhotoIndex] || '/gallery_1.jpg'} 
-            alt={profileUser.name} 
-            className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105" 
+          <ProfilePhoto
+            src={getProfilePhotoSrc(profileUser.photos, activePhotoIndex)}
+            name={profileUser.name}
+            gender={profileUser.gender}
+            alt={profileUser.name}
+            className="h-full w-full"
+            mediaClassName="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105"
+            animated
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#1f2330] via-[#1f2330]/40 to-transparent" />
           
@@ -172,7 +178,14 @@ export default function Profile() {
             <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:gap-8">
               <div className="relative">
                 <div className="h-32 w-32 overflow-hidden rounded-[36px] border-6 border-white bg-white shadow-2xl transition-transform hover:scale-105 sm:h-52 sm:w-52 sm:rounded-[48px] sm:border-8">
-                  <img src={profileUser.photos[0] || '/gallery_1.jpg'} alt={profileUser.name} className="h-full w-full object-cover" />
+                  <ProfilePhoto
+                    src={getProfilePhotoSrc(profileUser.photos)}
+                    name={profileUser.name}
+                    gender={profileUser.gender}
+                    alt={profileUser.name}
+                    className="h-full w-full"
+                    mediaClassName="h-full w-full object-cover"
+                  />
                 </div>
                 {showPremiumBadge && (
                   <div className="absolute -right-2 -top-2 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-[#efc18d] text-[#1f2330] shadow-lg sm:h-12 sm:w-12">
@@ -415,7 +428,14 @@ export default function Profile() {
               <div className="space-y-4">
                 {recentVisitors.slice(0, 4).map((visitor, i) => (
                   <Link key={i} to={`/profile/${visitor.id}`} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-gray-50 transition-all border border-transparent hover:border-gray-100 group">
-                    <img src={visitor.photos[0] || '/gallery_1.jpg'} className="h-14 w-14 rounded-2xl object-cover shadow-md" />
+                    <ProfilePhoto
+                      src={getProfilePhotoSrc(visitor.photos)}
+                      name={visitor.name}
+                      gender={visitor.gender}
+                      alt={visitor.name}
+                      className="h-14 w-14 rounded-2xl shadow-md"
+                      mediaClassName="h-full w-full object-cover"
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="font-black text-[#1f2330] group-hover:text-[#b84f45] transition-colors">{visitor.name}</p>
                       <p className="text-[10px] font-bold text-[#9a8a79] truncate">{visitor.profession}</p>

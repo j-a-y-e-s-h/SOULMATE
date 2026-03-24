@@ -1,8 +1,7 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
-// matchesStore now only tracks locally-dismissed profiles (swipe-left state).
-// All real data (matches, interests, messages, profiles) lives in chatStore.
+// matchesStore is now an in-memory fallback only.
+// Persisted dismissed profiles now live in the database via public.dismissed_profiles.
 
 interface MatchesState {
   dismissedProfiles: string[];
@@ -11,25 +10,19 @@ interface MatchesState {
 }
 
 export const useMatchesStore = create<MatchesState>()(
-  persist(
-    (set) => ({
-      dismissedProfiles: [],
+  (set) => ({
+    dismissedProfiles: [],
 
-      passUser: (userId) => {
-        set((state) => ({
-          dismissedProfiles: state.dismissedProfiles.includes(userId)
-            ? state.dismissedProfiles
-            : [...state.dismissedProfiles, userId],
-        }));
-      },
-
-      resetDismissed: () => {
-        set({ dismissedProfiles: [] });
-      },
-    }),
-    {
-      name: 'soulmate-dismissed',
-      version: 1,
+    passUser: (userId) => {
+      set((state) => ({
+        dismissedProfiles: state.dismissedProfiles.includes(userId)
+          ? state.dismissedProfiles
+          : [...state.dismissedProfiles, userId],
+      }));
     },
-  ),
+
+    resetDismissed: () => {
+      set({ dismissedProfiles: [] });
+    },
+  }),
 );

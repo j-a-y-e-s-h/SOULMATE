@@ -7,7 +7,6 @@ import {
   Lock,
   LogOut,
   Shield,
-  Trash2,
   UserX,
   MessageSquare,
   Eye,
@@ -159,12 +158,15 @@ const INITIAL_SENSITIVE_FIELD_STATE: Record<SensitiveFieldKey, boolean> = {
 };
 
 export default function Settings() {
-  const { user, logout, updatePreferences, updatePrivacy, updateNotifications, updateChatDefaults, updateAppearance, unblockUser, changePassword, changeEmail } = useAuthStore();
+  const { user, logout, updatePreferences, updatePrivacy, updateNotifications, updateChatDefaults, updateAppearance, unblockUser, changePassword, changeEmail, deactivateAccount } = useAuthStore();
   const { getProfileById } = useChatStore();
   const navigate = useNavigate();
   
   const [isLoading, setIsLoading] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [deactivateConfirmText, setDeactivateConfirmText] = useState('');
+  const [deactivatePassword, setDeactivatePassword] = useState('');
+  const [isDeactivating, setIsDeactivating] = useState(false);
   
   // Account Change States
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -253,6 +255,12 @@ export default function Settings() {
     setShowEmailChange((visible) => !visible);
   };
 
+  const resetDeactivateForm = () => {
+    setDeactivateConfirmText('');
+    setDeactivatePassword('');
+    setShowDeactivateModal(false);
+  };
+
   const handleEmailChange = async (e: React.FormEvent) => {
     e.preventDefault();
     const normalizedEmail = normalizeEmailAddress(newEmail);
@@ -316,6 +324,30 @@ export default function Settings() {
     } else {
       toast.error(error || 'Failed to update password');
     }
+  };
+
+  const handleDeactivateAccount = async () => {
+    if (deactivateConfirmText !== 'DEACTIVATE') {
+      toast.error('Type DEACTIVATE exactly to confirm account deactivation.');
+      return;
+    }
+
+    if (!deactivatePassword) {
+      toast.error('Enter your current password to deactivate your account.');
+      return;
+    }
+
+    setIsDeactivating(true);
+    const { ok, error } = await deactivateAccount(deactivatePassword);
+    setIsDeactivating(false);
+
+    if (!ok) {
+      toast.error(error || 'We could not deactivate your account right now.');
+      return;
+    }
+
+    resetDeactivateForm();
+    window.location.assign('/?account=deactivated');
   };
 
   const saveSettings = async () => {
@@ -735,22 +767,31 @@ export default function Settings() {
               </div>
 
               {/* Advanced Actions */}
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={handleLogout}
-                  className="flex flex-1 items-center justify-center gap-3 rounded-[32px] border border-[#8f7b67]/10 bg-white/70 py-4 font-bold text-[#1f2330] transition-all hover:bg-[#fff7f2] hover:text-[#b84f45] active:scale-[0.98]"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Log out
-                </button>
+              <div className="mt-6 space-y-4">
+                <div className="rounded-[32px] border border-red-200 bg-red-50/60 p-5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-red-600">Deactivate account</p>
+                  <p className="mt-3 text-sm leading-7 text-red-700">
+                    Deactivating hides your profile from others. You can reactivate anytime by logging back in.
+                  </p>
+                </div>
 
-                <button
-                  onClick={() => setShowDeleteModal(true)}
-                  className="flex flex-1 items-center justify-center gap-3 rounded-[32px] border border-red-200 bg-red-50/50 py-4 font-bold text-red-600 transition-all hover:bg-red-50 hover:shadow-inner active:scale-[0.98]"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Account deletion
-                </button>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    onClick={handleLogout}
+                    className="flex flex-1 items-center justify-center gap-3 rounded-[32px] border border-[#8f7b67]/10 bg-white/70 py-4 font-bold text-[#1f2330] transition-all hover:bg-[#fff7f2] hover:text-[#b84f45] active:scale-[0.98]"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Log out
+                  </button>
+
+                  <button
+                    onClick={() => setShowDeactivateModal(true)}
+                    className="flex flex-1 items-center justify-center gap-3 rounded-[32px] border border-red-200 bg-red-50/50 py-4 font-bold text-red-600 transition-all hover:bg-red-50 hover:shadow-inner active:scale-[0.98]"
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                    Deactivate account
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -797,35 +838,79 @@ export default function Settings() {
         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#8c7c6c]/40">Soulmate Matchmaking Engine v1.1.0 • Built with Trust</p>
       </div>
 
-      {/* Delete Account Modal Overlay */}
-      {showDeleteModal && (
+      {/* Deactivate Account Modal Overlay */}
+      {showDeactivateModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1f2330]/60 p-4 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-md overflow-hidden rounded-[40px] bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="w-full max-w-lg overflow-hidden rounded-[40px] bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="flex flex-col items-center text-center">
               <div className="flex h-20 w-20 items-center justify-center rounded-[32px] bg-red-50 text-red-500">
                 <AlertTriangle className="h-10 w-10 animate-pulse" />
               </div>
-              <h3 className="mt-6 text-2xl font-black text-[#1f2330]">Deletion Not Enabled Yet</h3>
+              <h3 className="mt-6 text-2xl font-black text-[#1f2330]">Deactivate your account?</h3>
               <p className="mt-4 leading-relaxed text-[#62584d]">
-                Permanent account deletion needs secure server-side support and is not enabled in this build yet.
-                To avoid a false promise, Soulmate will not claim your data is erased when it is only signing you out.
+                Your profile will be hidden immediately, but no data will be deleted. Matches, messages, interest requests, and profile history all stay intact.
               </p>
-              
-              <div className="mt-10 flex w-full flex-col gap-3">
+
+              <div className="mt-8 w-full space-y-4 text-left">
+                <div className="rounded-[28px] border border-[#eadbcc] bg-[#fcf8f3] p-5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#8c7c6c]">Confirmation phrase</p>
+                  <p className="mt-2 text-sm leading-6 text-[#62584d]">
+                    Type <span className="font-black tracking-[0.2em] text-[#1f2330]">DEACTIVATE</span> to continue.
+                  </p>
+                </div>
+
+                <input
+                  type="email"
+                  name="deactivateAccountUsername"
+                  value={user?.email ?? ''}
+                  autoComplete="username"
+                  readOnly
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="sr-only"
+                />
+
+                <input
+                  type="text"
+                  name="deactivateConfirmPhrase"
+                  value={deactivateConfirmText}
+                  onChange={(e) => setDeactivateConfirmText(e.target.value)}
+                  placeholder="Type DEACTIVATE"
+                  className="input-surface"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck={false}
+                  data-1p-ignore="true"
+                  data-lpignore="true"
+                  data-bwignore="true"
+                />
+
+                <input
+                  type="password"
+                  name="deactivateCurrentPassword"
+                  value={deactivatePassword}
+                  onChange={(e) => setDeactivatePassword(e.target.value)}
+                  placeholder="Current password"
+                  className="input-surface"
+                  autoComplete="current-password"
+                />
+              </div>
+
+              <div className="mt-8 flex w-full flex-col gap-3">
                 <button 
-                  onClick={() => {
-                    setShowDeleteModal(false);
-                    handleLogout();
-                  }}
-                  className="flex items-center justify-center gap-2 rounded-[32px] bg-red-600 py-5 font-black text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                  onClick={handleDeactivateAccount}
+                  disabled={isDeactivating || deactivateConfirmText !== 'DEACTIVATE' || !deactivatePassword}
+                  className="flex items-center justify-center gap-2 rounded-[32px] bg-red-600 py-5 font-black text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
                 >
-                  Log out instead
+                  {isDeactivating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {isDeactivating ? 'Deactivating...' : 'Deactivate account'}
                 </button>
                 <button 
-                  onClick={() => setShowDeleteModal(false)}
-                  className="rounded-[32px] py-5 font-bold text-[#1f2330] transition-colors hover:bg-[#f3e5d6]/50"
+                  onClick={resetDeactivateForm}
+                  disabled={isDeactivating}
+                  className="rounded-[32px] py-5 font-bold text-[#1f2330] transition-colors hover:bg-[#f3e5d6]/50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Keep browsing
+                  Cancel
                 </button>
               </div>
             </div>

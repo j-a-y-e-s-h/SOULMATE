@@ -19,6 +19,8 @@ import {
   Bell,
   ArrowUpRight,
 } from 'lucide-react';
+import { ProfilePhoto } from '@/components/ProfilePhoto';
+import { getProfilePhotoSrc } from '@/components/profilePhotoUtils';
 import { getVerificationLabel } from '@/lib/matchmaking';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
@@ -37,9 +39,15 @@ export default function Dashboard() {
 
   const firstName = user?.name?.split(' ')[0] ?? 'there';
   const currentUserId = user?.id ?? '1';
+  const matchedUserIds = new Set(matches.map((match) => match.matchedUserId));
 
   const incomingInterests = interestRequests
-    .filter((request) => request.toUserId === currentUserId && request.status === 'pending')
+    .filter(
+      (request) =>
+        request.toUserId === currentUserId &&
+        (request.status === 'pending' ||
+          (request.status === 'accepted' && !matchedUserIds.has(request.fromUserId))),
+    )
     .map((request) => ({
       request,
       profile: getProfileById(request.fromUserId),
@@ -82,8 +90,8 @@ export default function Dashboard() {
       } else {
         toast.info(`Interest from ${name} declined.`);
       }
-    } catch {
-      toast.error('Something went wrong. Please try again.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     }
   };
 
@@ -184,7 +192,14 @@ export default function Dashboard() {
                   <div key={request.id} className="surface-muted group rounded-[32px] border border-transparent p-5 transition-all hover:border-[#8f7b67]/10 hover:bg-white hover:shadow-lg sm:p-6">
                     <div className="flex flex-col gap-5 sm:flex-row sm:gap-6">
                       <div className="relative">
-                        <img src={profile.photos[0] || '/gallery_1.jpg'} className="h-24 w-24 rounded-[32px] object-cover shadow-md" />
+                        <ProfilePhoto
+                          src={getProfilePhotoSrc(profile.photos)}
+                          name={profile.name}
+                          gender={profile.gender}
+                          alt={profile.name}
+                          className="h-24 w-24 rounded-[32px] shadow-md"
+                          mediaClassName="h-full w-full object-cover"
+                        />
                         <div className="absolute -bottom-2 -right-2 h-8 w-8 flex items-center justify-center rounded-full bg-white text-[#b84f45] shadow-lg border-2 border-white">
                           <Heart className="h-4 w-4 fill-current" />
                         </div>
@@ -251,7 +266,14 @@ export default function Dashboard() {
                {profiles.slice(0, 3).map((profile) => (
                  <article key={profile.id} className="group relative overflow-hidden rounded-[40px] bg-white border border-[#8f7b67]/5 shadow-md hover:shadow-2xl transition-all duration-500 hover:-translate-y-2">
                    <div className="aspect-[4/5] relative overflow-hidden">
-                     <img src={profile.photos[0] || '/gallery_1.jpg'} className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                     <ProfilePhoto
+                       src={getProfilePhotoSrc(profile.photos)}
+                       name={profile.name}
+                       gender={profile.gender}
+                       alt={profile.name}
+                       className="h-full w-full"
+                       mediaClassName="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                     />
                      <div className="absolute inset-0 bg-gradient-to-t from-[#1f2330] via-transparent to-transparent opacity-80" />
                      <button 
                        onClick={() => handleToggleShortlist(profile.id, profile.name)}
@@ -325,7 +347,14 @@ export default function Dashboard() {
              <div className="space-y-4">
                {recentVisitors.slice(0, 4).map((visitor, i) => (
                  <Link key={i} to={`/profile/${visitor.id}`} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-gray-50 transition-all group border border-transparent hover:border-gray-100">
-                    <img src={visitor.photos[0] || '/gallery_1.jpg'} className="h-14 w-14 rounded-2xl object-cover shadow-md transition-transform group-hover:scale-105" />
+                    <ProfilePhoto
+                      src={getProfilePhotoSrc(visitor.photos)}
+                      name={visitor.name}
+                      gender={visitor.gender}
+                      alt={visitor.name}
+                      className="h-14 w-14 rounded-2xl shadow-md"
+                      mediaClassName="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="font-black text-[#1f2330] group-hover:text-[#b84f45] transition-colors line-clamp-1">{visitor.name}</p>
                       <p className="text-[10px] font-bold text-[#9a8a79] uppercase tracking-tighter truncate">{visitor.profession}</p>

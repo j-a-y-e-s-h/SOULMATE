@@ -20,6 +20,8 @@ import {
   Clock,
   X,
 } from 'lucide-react';
+import { ProfilePhoto } from '@/components/ProfilePhoto';
+import { getProfilePhotoSrc } from '@/components/profilePhotoUtils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
@@ -305,7 +307,14 @@ export default function Chat() {
               {pendingIncoming.map(({ request, profile }) => (
                 <div key={request.id} className="surface-muted group p-4 hover:shadow-md transition-all">
                   <div className="flex items-center gap-3">
-                    <img src={profile.photos[0] || '/gallery_1.jpg'} alt={profile.name} className="h-14 w-14 rounded-[20px] object-cover shadow-sm group-hover:scale-105 transition-transform" />
+                    <ProfilePhoto
+                      src={getProfilePhotoSrc(profile.photos)}
+                      name={profile.name}
+                      gender={profile.gender}
+                      alt={profile.name}
+                      className="h-14 w-14 rounded-[20px] shadow-sm"
+                      mediaClassName="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-[#1f2330] truncate">{profile.name}</p>
                       <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-[#62584d]">{request.message}</p>
@@ -343,7 +352,14 @@ export default function Chat() {
                 }`}
               >
                 <div className="relative shrink-0">
-                  <img src={match.matchedUser.photos[0] || '/gallery_1.jpg'} alt={match.matchedUser.name} className="h-14 w-14 rounded-[22px] object-cover shadow-sm" />
+                  <ProfilePhoto
+                    src={getProfilePhotoSrc(match.matchedUser.photos)}
+                    name={match.matchedUser.name}
+                    gender={match.matchedUser.gender}
+                    alt={match.matchedUser.name}
+                    className="h-14 w-14 rounded-[22px] shadow-sm"
+                    mediaClassName="h-full w-full object-cover"
+                  />
                   <span className={`absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-white shadow-sm ${isUserOnline(match.matchedUserId) ? 'bg-green-500' : 'bg-[#c4b5a5]'}`} />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -380,7 +396,14 @@ export default function Chat() {
                 </button>
 
                 <div className="relative">
-                  <img src={selectedMatch.matchedUser.photos[0] || '/gallery_1.jpg'} alt={selectedMatch.matchedUser.name} className="h-12 w-12 rounded-[18px] object-cover ring-2 ring-[#e4efe9]" />
+                  <ProfilePhoto
+                    src={getProfilePhotoSrc(selectedMatch.matchedUser.photos)}
+                    name={selectedMatch.matchedUser.name}
+                    gender={selectedMatch.matchedUser.gender}
+                    alt={selectedMatch.matchedUser.name}
+                    className="h-12 w-12 rounded-[18px] ring-2 ring-[#e4efe9]"
+                    mediaClassName="h-full w-full object-cover"
+                  />
                   <span className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white ${isUserOnline(selectedMatch.matchedUserId) ? 'bg-green-500' : 'bg-[#9a8a79]'}`} />
                 </div>
 
@@ -455,10 +478,13 @@ export default function Chat() {
                 {/* Intro Card */}
                 <div className="flex flex-col items-center justify-center py-6 text-center">
                   <div className="rounded-[40px] bg-gradient-to-br from-[#1f2330] to-[#2c344d] p-0.5 shadow-xl">
-                    <img 
-                      src={selectedMatch.matchedUser.photos[0] || '/gallery_1.jpg'} 
-                      alt={selectedMatch.matchedUser.name} 
-                      className="h-24 w-24 rounded-[39px] object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-700" 
+                    <ProfilePhoto
+                      src={getProfilePhotoSrc(selectedMatch.matchedUser.photos)}
+                      name={selectedMatch.matchedUser.name}
+                      gender={selectedMatch.matchedUser.gender}
+                      alt={selectedMatch.matchedUser.name}
+                      className="h-24 w-24 rounded-[39px]"
+                      mediaClassName="h-full w-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-700"
                     />
                   </div>
                   <h3 className="mt-5 text-2xl font-black text-[#1f2330]">Matched on {new Date(selectedMatch.createdAt).toLocaleDateString()}</h3>
@@ -507,10 +533,13 @@ export default function Chat() {
                               {!isMe && (
                                 <div className="shrink-0 w-8 self-end">
                                   {showAvatar ? (
-                                    <img
-                                      src={selectedMatch.matchedUser.photos[0] || '/gallery_1.jpg'}
-                                      alt=""
-                                      className="h-8 w-8 rounded-full object-cover shadow-sm ring-2 ring-white"
+                                    <ProfilePhoto
+                                      src={getProfilePhotoSrc(selectedMatch.matchedUser.photos)}
+                                      name={selectedMatch.matchedUser.name}
+                                      gender={selectedMatch.matchedUser.gender}
+                                      alt={selectedMatch.matchedUser.name}
+                                      className="h-8 w-8 rounded-full shadow-sm ring-2 ring-white"
+                                      mediaClassName="h-full w-full object-cover"
                                     />
                                   ) : <div className="w-8" />}
                                 </div>
@@ -577,7 +606,14 @@ export default function Chat() {
                 {isOtherTyping && (
                   <div className="flex justify-start animate-in fade-in duration-500">
                     <div className="flex max-w-[70%] items-end gap-3">
-                      <img src={selectedMatch.matchedUser.photos[0] || '/gallery_1.jpg'} alt="" className="h-8 w-8 rounded-2xl object-cover ring-2 ring-white shadow-sm" />
+                      <ProfilePhoto
+                        src={getProfilePhotoSrc(selectedMatch.matchedUser.photos)}
+                        name={selectedMatch.matchedUser.name}
+                        gender={selectedMatch.matchedUser.gender}
+                        alt={selectedMatch.matchedUser.name}
+                        className="h-8 w-8 rounded-2xl ring-2 ring-white shadow-sm"
+                        mediaClassName="h-full w-full object-cover"
+                      />
                       <div className="bg-[#f7efe4] rounded-[28px] rounded-bl-[8px] px-5 py-3 shadow-sm border border-[#8f7b67]/10 flex items-center gap-1.5">
                         <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#b84f45]/40 [animation-delay:-0.3s]"></div>
                         <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#b84f45]/60 [animation-delay:-0.15s]"></div>

@@ -1,7 +1,8 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
   Calendar,
+  CheckCircle2,
   ChevronRight,
   Heart,
   Quote,
@@ -76,6 +77,9 @@ const footerLinks = [
 ];
 
 export default function LandingPage() {
+  const [searchParams] = useSearchParams();
+  const showDeactivationSuccess = searchParams.get('account') === 'deactivated';
+
   return (
     <div className="page-shell overflow-hidden selection:bg-[#b84f45] selection:text-white">
       <div className="grain-overlay opacity-50" />
@@ -116,6 +120,35 @@ export default function LandingPage() {
       </nav>
 
       <main className="relative z-10 px-4 pb-16 sm:px-8 sm:pb-32">
+        {showDeactivationSuccess && (
+          <section className="mx-auto max-w-5xl pt-8 sm:pt-10">
+            <div className="glass-card overflow-hidden border-none bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(255,242,238,0.96))] p-6 shadow-2xl sm:p-10">
+              <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[24px] bg-[#fff2ee] text-[#b84f45]">
+                  <CheckCircle2 className="h-8 w-8" />
+                </div>
+                <p className="mt-5 text-[0.72rem] font-black uppercase tracking-[0.3em] text-[#b84f45]">
+                  Account Updated
+                </p>
+                <h2 className="mt-3 text-[clamp(2rem,5vw,3.6rem)] font-black leading-[0.96] tracking-tight text-[#1f2330]">
+                  Your account has been deactivated
+                </h2>
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-[#62584d] sm:text-base">
+                  Your profile is now hidden from everyone else. You can reactivate anytime by logging back in and confirming the reactivation prompt.
+                </p>
+                <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                  <Link to="/login" className="btn-primary justify-center px-8 py-4 shadow-lg shadow-[#b84f45]/20">
+                    Sign in to Reactivate
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <a href="#experience" className="btn-secondary justify-center px-8 py-4">
+                    Return to Home
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
         
         {/* Hero Section */}
         <section id="experience" className="mx-auto grid max-w-7xl gap-16 py-16 sm:py-24 lg:grid-cols-12 lg:items-center">

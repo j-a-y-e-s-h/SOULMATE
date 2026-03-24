@@ -670,3 +670,96 @@ input[type="checkbox"] {
 .animate-slide-down-fade {
   animation: slide-down-fade 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
+
+@keyframes soulmate-avatar-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes soulmate-avatar-halo {
+  0%, 100% { transform: scale(0.96); opacity: 0.42; }
+  50% { transform: scale(1.04); opacity: 0.72; }
+}
+
+@keyframes soulmate-avatar-background-breathe {
+  0%, 100% { transform: scale(0.985); opacity: 0.95; }
+  50% { transform: scale(1.015); opacity: 1; }
+}
+
+@keyframes soulmate-avatar-orb-left {
+  0%, 100% { transform: translate3d(0px, 0px, 0px); opacity: 0.55; }
+  50% { transform: translate3d(-4px, -5px, 0px); opacity: 0.8; }
+}
+
+@keyframes soulmate-avatar-orb-right {
+  0%, 100% { transform: translate3d(0px, 0px, 0px); opacity: 0.38; }
+  50% { transform: translate3d(5px, 4px, 0px); opacity: 0.62; }
+}
+
+@keyframes soulmate-avatar-shoulder-sway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(1.4deg); }
+}
+
+@keyframes soulmate-avatar-hair-sway {
+  0%, 100% { transform: rotate(0deg) translateX(0px); }
+  50% { transform: rotate(-1.2deg) translateX(-1px); }
+}
+
+@keyframes soulmate-avatar-blink {
+  0%, 44%, 48%, 52%, 100% { transform: scaleY(1); opacity: 1; }
+  46%, 50% { transform: scaleY(0.08); opacity: 0.85; }
+}
+
+.avatar-illustration-animated .avatar-figure-bob {
+  animation: soulmate-avatar-float 7.2s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.avatar-illustration-animated .avatar-background-circle {
+  animation: soulmate-avatar-background-breathe 8.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.avatar-illustration-animated .avatar-illustration-halo {
+  animation: soulmate-avatar-halo 8.5s ease-in-out infinite;
+}
+
+.avatar-illustration-animated .avatar-illustration-orb-left {
+  animation: soulmate-avatar-orb-left 9.5s ease-in-out infinite;
+}
+
+.avatar-illustration-animated .avatar-illustration-orb-right {
+  animation: soulmate-avatar-orb-right 11s ease-in-out infinite;
+}
+
+.avatar-illustration-animated .avatar-shoulder-sway {
+  animation: soulmate-avatar-shoulder-sway 7.6s ease-in-out infinite;
+  transform-origin: center bottom;
+  transform-box: fill-box;
+}
+
+.avatar-illustration-animated .avatar-hair-sway {
+  animation: soulmate-avatar-hair-sway 6.8s ease-in-out infinite;
+  transform-origin: center top;
+  transform-box: fill-box;
+}
+
+.avatar-illustration-animated .avatar-face-blink {
+  animation: soulmate-avatar-blink 8.6s ease-in-out infinite;
+  transform-origin: center center;
+  transform-box: fill-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-illustration-animated .avatar-figure-bob,
+  .avatar-illustration-animated .avatar-background-circle,
+  .avatar-illustration-animated .avatar-illustration-halo,
+  .avatar-illustration-animated .avatar-illustration-orb-left,
+  .avatar-illustration-animated .avatar-illustration-orb-right,
+  .avatar-illustration-animated .avatar-shoulder-sway,
+  .avatar-illustration-animated .avatar-hair-sway,
+  .avatar-illustration-animated .avatar-face-blink {
+    animation: none !important;
+  }
+}

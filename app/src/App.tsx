@@ -1,9 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { useEffect, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { useRouteUi } from '@/lib/routeUi';
 import { buildPendingVerificationPath, getRedirectFromSearchParams } from '@/lib/authRedirect';
-import { Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
 
 // Pages
 import LandingPage from '@/pages/LandingPage';
@@ -31,7 +31,7 @@ import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ScrollToTop from '@/components/ScrollToTop';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 
 import './App.css';
 
@@ -61,6 +61,86 @@ function PublicOnlyRoute({ children }: { children: ReactElement }) {
   return children;
 }
 
+function ReactivationPrompt() {
+  const navigate = useNavigate();
+  const { user, requiresReactivation, reactivateAccount, logout } = useAuthStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (!requiresReactivation || !user) {
+    return null;
+  }
+
+  const handleReactivate = async () => {
+    setIsSubmitting(true);
+    const result = await reactivateAccount();
+    setIsSubmitting(false);
+
+    if (!result.ok) {
+      toast.error(result.error || 'We could not reactivate your account right now.');
+      return;
+    }
+
+    toast.success('Your account has been reactivated.');
+    navigate('/dashboard', { replace: true });
+  };
+
+  const handleDecline = async () => {
+    setIsSubmitting(true);
+    await logout();
+    setIsSubmitting(false);
+    navigate('/?account=deactivated', { replace: true });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#1f2330]/65 p-4 backdrop-blur-md">
+      <div className="glass-card w-full max-w-lg border-none bg-white p-8 shadow-2xl sm:p-10">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] bg-[#fff2ee] text-[#b84f45]">
+          <AlertTriangle className="h-8 w-8" />
+        </div>
+
+        <div className="mt-6 text-center">
+          <p className="text-[0.7rem] font-black uppercase tracking-[0.28em] text-[#b84f45]">Account Paused</p>
+          <h2 className="mt-3 text-3xl font-black tracking-tight text-[#1f2330]">
+            Your account is deactivated.
+          </h2>
+          <p className="mt-4 text-sm leading-7 text-[#62584d] sm:text-base">
+            Would you like to reactivate it? Reactivating makes your profile visible again and takes you back to your dashboard.
+          </p>
+        </div>
+
+        <div className="mt-8 flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={handleReactivate}
+            disabled={isSubmitting}
+            className="btn-primary justify-center py-4 shadow-lg shadow-[#b84f45]/20 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Reactivating...
+              </>
+            ) : (
+              <>
+                Reactivate account
+                <RefreshCw className="h-4 w-4" />
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={handleDecline}
+            disabled={isSubmitting}
+            className="btn-secondary justify-center py-4 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            Keep it deactivated
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const { isAuthenticated, isLoading: _isLoading, isInitialized, initialize, pendingVerificationEmail, requiresEmailVerification } = useAuthStore();
 
@@ -75,6 +155,7 @@ function App() {
       <ScrollToTop />
       <Toaster position="top-center" expand={false} richColors closeButton />
       <RouteUiController />
+      <ReactivationPrompt />
       {!isInitialized ? (
         <div className="flex h-screen items-center justify-center bg-[#f8f1e7]">
           <Loader2 className="h-8 w-8 animate-spin text-[#b84f45]" />

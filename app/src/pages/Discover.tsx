@@ -16,21 +16,44 @@ import {
   GraduationCap,
   Languages,
 } from 'lucide-react';
+import { ProfilePhoto } from '@/components/ProfilePhoto';
+import { getProfilePhotoSrc } from '@/components/profilePhotoUtils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { fetchDismissedProfileIds, saveDismissedProfiles } from '@/lib/chatService';
 import { getCompatibilityScore, getInterestState, getSharedInterests, getVerificationLabel } from '@/lib/matchmaking';
 import { formatChoiceLabel } from '@/lib/profileLabels';
 import { useAuthStore } from '@/store/authStore';
-import { useMatchesStore } from '@/store/matchesStore';
 import { useChatStore } from '@/store/chatStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { toast } from 'sonner';
+
+const LEGACY_DISMISSED_STORAGE_KEY = 'soulmate-dismissed';
+
+function readLegacyDismissedProfileIds(): string[] {
+  try {
+    const rawValue = localStorage.getItem(LEGACY_DISMISSED_STORAGE_KEY);
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsedValue = JSON.parse(rawValue);
+    if (Array.isArray(parsedValue)) {
+      return parsedValue.filter((value): value is string => typeof value === 'string');
+    }
+
+    const persistedDismissedProfiles = parsedValue?.state?.dismissedProfiles;
+    return Array.isArray(persistedDismissedProfiles)
+      ? persistedDismissedProfiles.filter((value): value is string => typeof value === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function Discover() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { user, toggleShortlist } = useAuthStore();
-  // dismissedProfiles (swipe-left) remain local in matchesStore
-  const { dismissedProfiles, passUser } = useMatchesStore();
   // All real data from chatStore (Supabase)
   const { profiles, matches, interestRequests, sendInterest, respondToInterest, loadAll, loadProfiles } = useChatStore();
   const { addNotification } = useNotificationStore();
@@ -39,10 +62,52 @@ export default function Discover() {
   const [direction, setDirection] = useState<'left' | 'right' | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [dismissedProfiles, setDismissedProfiles] = useState<string[]>([]);
 
   useEffect(() => {
-    Promise.all([loadProfiles(), loadAll()]).then(() => setHasLoaded(true));
-  }, [loadProfiles, loadAll]);
+    if (!user?.id) return;
+
+    let isMounted = true;
+
+    const loadDiscoverData = async () => {
+      try {
+        const legacyDismissedProfiles = readLegacyDismissedProfileIds()
+          .map((dismissedUserId) => dismissedUserId.trim())
+          .filter((dismissedUserId) => dismissedUserId && dismissedUserId !== user.id);
+
+        if (legacyDismissedProfiles.length > 0) {
+          await saveDismissedProfiles(user.id, legacyDismissedProfiles);
+          localStorage.removeItem(LEGACY_DISMISSED_STORAGE_KEY);
+        }
+
+        const [dbDismissedProfiles] = await Promise.all([
+          fetchDismissedProfileIds(user.id),
+          loadProfiles(),
+          loadAll(),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setDismissedProfiles(dbDismissedProfiles);
+      } catch (error) {
+        if (isMounted) {
+          toast.error(error instanceof Error ? error.message : 'We could not load your introduction queue.');
+        }
+      } finally {
+        if (isMounted) {
+          setHasLoaded(true);
+        }
+      }
+    };
+
+    void loadDiscoverData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, loadProfiles, loadAll]);
 
   // Build potential matches: real profiles excluding dismissed, matched, and blocked
   const potentialMatches = useMemo(() => {
@@ -60,7 +125,7 @@ export default function Discover() {
   }, [currentIndex, potentialMatches.length]);
 
   const currentProfile = potentialMatches[currentIndex];
-  const currentUserId = user?.id ?? '1';
+  const currentUserId = user?.id ?? '';
   const compatibility = currentProfile ? getCompatibilityScore(user, currentProfile) : 0;
   const compatibilityCircumference = 2 * Math.PI * 44;
   const compatibilityStrokeOffset = compatibilityCircumference - (compatibility / 100) * compatibilityCircumference;
@@ -91,12 +156,20 @@ export default function Discover() {
   const isShortlisted = currentProfile ? user?.shortlisted.includes(currentProfile.id) : false;
 
   const handlePass = () => {
-    if (!currentProfile) return;
+    if (!currentProfile || !currentUserId) return;
 
     setDirection('left');
-    toast.info(`Passed ${currentProfile.name}. Moving to next profile.`);
-    setTimeout(() => {
-      passUser(currentProfile.id);
+    window.setTimeout(async () => {
+      try {
+        await saveDismissedProfiles(currentUserId, [currentProfile.id]);
+        setDismissedProfiles((previous) =>
+          previous.includes(currentProfile.id) ? previous : [...previous, currentProfile.id],
+        );
+        toast.info(`Passed ${currentProfile.name}. Moving to next profile.`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'We could not dismiss this profile just now.');
+      }
+
       setDirection(null);
       setShowDetails(false);
     }, 300);
@@ -144,8 +217,8 @@ export default function Discover() {
             href: result.matchId ? `/chat/${result.matchId}` : `/profile/${currentProfile.id}`,
           });
         }
-      } catch {
-        toast.error('Something went wrong. Please try again.');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
       }
 
       setDirection(null);
@@ -183,7 +256,19 @@ export default function Discover() {
           You've handled all current introductions. New recommendations are generated periodically based on your evolving preferences.
         </p>
         <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-          <button onClick={() => { Promise.all([loadProfiles(), loadAll()]); }} className="btn-primary px-10 py-4 shadow-xl">
+          <button
+            onClick={() => {
+              if (!user) return;
+
+              setHasLoaded(false);
+              Promise.all([fetchDismissedProfileIds(user.id), loadProfiles(), loadAll()])
+                .then(([dbDismissedProfiles]) => {
+                  setDismissedProfiles(dbDismissedProfiles);
+                })
+                .finally(() => setHasLoaded(true));
+            }}
+            className="btn-primary px-10 py-4 shadow-xl"
+          >
             Refresh my queue
           </button>
           <button onClick={() => navigate('/search')} className="btn-secondary px-10 py-4">
@@ -254,10 +339,14 @@ export default function Discover() {
               } ${direction === 'right' ? 'translate-x-full rotate-12 opacity-0 scale-90' : ''}`}
             >
               <div className="relative h-[360px] w-full overflow-hidden sm:h-[40rem] xl:h-[45rem]">
-                <img
-                  src={currentProfile.photos[0] || '/gallery_1.jpg'}
+                <ProfilePhoto
+                  src={getProfilePhotoSrc(currentProfile.photos)}
+                  name={currentProfile.name}
+                  gender={currentProfile.gender}
                   alt={currentProfile.name}
-                  className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                  className="h-full w-full"
+                  mediaClassName="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                  animated
                 />
                 
                 {/* Overlay Badges */}

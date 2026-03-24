@@ -30,6 +30,42 @@ export interface DbMessage {
   reply_to_content?: string;
 }
 
+function getChatErrorMessage(error: unknown): string {
+  const message =
+    typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
+      ? error.message
+      : '';
+  const detail =
+    typeof error === 'object' && error && 'details' in error && typeof error.details === 'string'
+      ? error.details
+      : '';
+  const code =
+    typeof error === 'object' && error && 'code' in error && typeof error.code === 'string'
+      ? error.code
+      : '';
+
+  if (message.includes('INTEREST_REQUEST_RATE_LIMIT')) {
+    return detail || 'You have reached the limit of 20 interest requests in 24 hours. Please try again later.';
+  }
+
+  if (code === '23505' || message.toLowerCase().includes('duplicate key value')) {
+    return 'You already sent this person an interest request.';
+  }
+
+  if (
+    message.toLowerCase().includes('row-level security') ||
+    message.toLowerCase().includes('permission denied')
+  ) {
+    return 'This profile is no longer available.';
+  }
+
+  if (message.toLowerCase().includes('invalid jwt')) {
+    return 'We could not verify your session. Please sign in again and retry.';
+  }
+
+  return detail || message || 'Something went wrong. Please try again.';
+}
+
 // ─── Interest Requests ────────────────────────────────────────────────────────
 
 export async function fetchInterestRequests(userId: string): Promise<DbInterestRequest[]> {
@@ -54,13 +90,13 @@ export async function sendInterestRequest(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) throw new Error(getChatErrorMessage(error));
   return data;
 }
 
 export async function respondToInterestRequest(
   requestId: string,
-  status: 'accepted' | 'declined',
+  status: 'pending' | 'accepted' | 'declined',
 ): Promise<DbInterestRequest> {
   const { data, error } = await supabase
     .from('interest_requests')
@@ -87,19 +123,48 @@ export async function fetchMatches(userId: string): Promise<DbMatch[]> {
 }
 
 /**
- * Creates a match between two users.
- * Enforces canonical ordering (smaller UUID first) to satisfy the table constraint.
+ * Creates a match from an accepted interest request through the secured Edge Function.
  */
-export async function createMatch(userA: string, userB: string): Promise<DbMatch> {
-  const [user1_id, user2_id] = [userA, userB].sort();
+export async function createMatch(interestRequestId: string): Promise<DbMatch> {
+  const { data, error } = await supabase.functions.invoke<DbMatch>('create-match', {
+    body: { interestRequestId },
+  });
 
-  const { data, error } = await supabase
-    .from('matches')
-    .upsert({ user1_id, user2_id }, { onConflict: 'user1_id,user2_id' })
-    .select()
-    .single();
+  if (error) {
+    let message = error.message?.trim();
 
-  if (error) throw error;
+    const responseContext =
+      typeof error === 'object' && error && 'context' in error ? error.context : null;
+
+    if (responseContext instanceof Response) {
+      const payload = await responseContext
+        .clone()
+        .json()
+        .catch(async () => {
+          const text = await responseContext.clone().text().catch(() => '');
+          return text ? { message: text } : null;
+        });
+
+      if (payload && typeof payload === 'object') {
+        if ('error' in payload && typeof payload.error === 'string' && payload.error.trim()) {
+          message = payload.error.trim();
+        } else if ('message' in payload && typeof payload.message === 'string' && payload.message.trim()) {
+          message = payload.message.trim();
+        }
+      }
+    }
+
+    if (message?.toLowerCase().includes('invalid jwt')) {
+      throw new Error('We could not verify your session. Please sign in again and retry.');
+    }
+
+    throw new Error(message || 'We could not create the match right now.');
+  }
+
+  if (!data) {
+    throw new Error('We could not create the match right now.');
+  }
+
   return data;
 }
 
@@ -143,6 +208,46 @@ export async function softDeleteMessage(messageId: string): Promise<void> {
     .eq('id', messageId);
 
   if (error) throw error;
+}
+
+// ─── Dismissed Profiles ───────────────────────────────────────────────────────
+
+export async function fetchDismissedProfileIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('dismissed_profiles')
+    .select('dismissed_user_id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(getChatErrorMessage(error));
+  return data?.map((row) => row.dismissed_user_id) ?? [];
+}
+
+export async function saveDismissedProfiles(userId: string, dismissedUserIds: string[]): Promise<void> {
+  const uniqueDismissedUserIds = [...new Set(dismissedUserIds)]
+    .map((dismissedUserId) => dismissedUserId.trim())
+    .filter((dismissedUserId) => dismissedUserId && dismissedUserId !== userId);
+
+  if (uniqueDismissedUserIds.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from('dismissed_profiles')
+    .upsert(
+      uniqueDismissedUserIds.map((dismissed_user_id) => ({
+        user_id: userId,
+        dismissed_user_id,
+      })),
+      {
+        onConflict: 'user_id,dismissed_user_id',
+        // Discover can mount twice in development/StrictMode. Ignore duplicate inserts
+        // so the second request does not attempt an UPDATE that RLS could reject.
+        ignoreDuplicates: true,
+      },
+    );
+
+  if (error) throw new Error(getChatErrorMessage(error));
 }
 
 export async function markMessagesRead(matchId: string, currentUserId: string): Promise<void> {

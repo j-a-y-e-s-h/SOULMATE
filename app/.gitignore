@@ -15,3 +15,5 @@ vite-*.log
 
 # TypeScript cache
 *.tsbuildinfo
+
+.vercel

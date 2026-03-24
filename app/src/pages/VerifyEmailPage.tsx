@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, Heart, Loader2, Mail, XCircle } from 'lucide-react';
 import { buildPathWithRedirect, getRedirectFromSearchParams } from '@/lib/authRedirect';
@@ -109,6 +109,15 @@ export default function VerifyEmailPage() {
   const registerPath = buildPathWithRedirect('/register', redirectTo);
   const successPath = redirectTo;
   const successLabel = redirectTo === '/dashboard' ? 'Go to Dashboard' : 'Continue';
+  // Parse hash fragment — some mobile browsers / email clients redirect with
+  // #access_token=...&type=signup instead of query params
+  const hashParams = useMemo(
+    () => new URLSearchParams(window.location.hash.replace(/^#/, '')),
+    [],
+  );
+  const hashAccessToken = hashParams.get('access_token');
+  const hashRefreshToken = hashParams.get('refresh_token');
+  const hashType = hashParams.get('type');
 
   useEffect(() => {
     let redirectTimer: number | null = null;
@@ -182,6 +191,32 @@ export default function VerifyEmailPage() {
       };
     }
 
+    // --- Path 2.5: Hash-fragment flow — some mobile browsers (Gmail app, iOS Safari)
+    //               redirect with #access_token=...&type=signup|magiclink instead of
+    //               query params. Explicitly handle this for cross-device compatibility.
+    if (hashAccessToken && hashRefreshToken && (hashType === 'signup' || hashType === 'magiclink')) {
+      (async () => {
+        const { data, error } = await supabase.auth.setSession({
+          access_token: hashAccessToken,
+          refresh_token: hashRefreshToken,
+        });
+
+        if (error || !data.session) {
+          setStatus('error');
+          setErrorMessage(formatAuthErrorMessage(error?.message ?? null));
+          return;
+        }
+
+        await completeVerification(data.session.user);
+      })();
+      return () => {
+        cancelled = true;
+        if (redirectTimer) {
+          window.clearTimeout(redirectTimer);
+        }
+      };
+    }
+
     // --- Path 3+: Explicit pending state after registration ---
     if (mode === 'pending' && email) {
       setStatus('pending');
@@ -229,7 +264,7 @@ export default function VerifyEmailPage() {
         window.clearTimeout(redirectTimer);
       }
     };
-  }, [authCode, email, errorDescription, mode, navigate, redirectTo, tokenHash, verificationType]);
+  }, [authCode, email, errorDescription, hashAccessToken, hashRefreshToken, hashType, mode, navigate, redirectTo, tokenHash, verificationType]);
 
   useEffect(() => {
     if (cooldown <= 0) return;

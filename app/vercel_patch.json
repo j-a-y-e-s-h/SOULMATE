@@ -1,0 +1,9 @@
+{
+  "ssoProtection": null,
+  "passwordProtection": null,
+  "deploymentProtection": {
+    "all": false,
+    "preview": false,
+    "production": false
+  }
+}

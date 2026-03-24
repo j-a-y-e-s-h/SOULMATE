@@ -75,7 +75,8 @@ async function fetchProfilesForUsers(userIds: string[]): Promise<Record<string, 
   const { data, error } = await supabase
     .from('profiles')
     .select('id, email, profile_data')
-    .in('id', userIds);
+    .in('id', userIds)
+    .eq('is_active', true);
 
   if (error || !data) return {};
 
@@ -204,7 +205,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       );
 
       const profiles = await fetchProfilesForUsers(allIds);
-      const profileCache = { ...get().profileCache, ...profiles };
+      const profileCache = { ...get().profileCache };
+      allIds.forEach((id) => {
+        if (profiles[id]) {
+          profileCache[id] = profiles[id];
+        } else {
+          delete profileCache[id];
+        }
+      });
 
       // Build typed match objects
       const matches = dbMatches
@@ -233,7 +241,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { data, error } = await supabase
       .from('profiles')
       .select('id, email, profile_data')
-      .neq('id', currentUser.id);
+      .neq('id', currentUser.id)
+      .eq('is_active', true);
 
     if (error || !data) return;
 
@@ -247,7 +256,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const newCache: Record<string, User> = {};
     profiles.forEach((p) => { newCache[p.id] = p; });
 
-    set((s) => ({ profiles, profileCache: { ...s.profileCache, ...newCache } }));
+    set((s) => {
+      const nextCache = { ...s.profileCache };
+      s.profiles.forEach((profile) => {
+        delete nextCache[profile.id];
+      });
+
+      return { profiles, profileCache: { ...nextCache, ...newCache } };
+    });
   },
 
   sendInterest: async (toUserId, message = '') => {
@@ -275,7 +291,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (reciprocal) {
       try {
         await respondToInterestRequest(reciprocal.id, 'accepted');
-        const dbMatch = await createMatch(fromUserId, toUserId);
+        let dbMatch: DbMatch;
+        try {
+          dbMatch = await createMatch(reciprocal.id);
+        } catch (matchError) {
+          try {
+            await respondToInterestRequest(reciprocal.id, 'pending');
+          } catch (rollbackError) {
+            console.error('[chatStore] sendInterest reciprocal rollback error:', rollbackError);
+          }
+          throw matchError;
+        }
 
         // Ensure profile cache has the other user
         let profileCache = get().profileCache;
@@ -298,7 +324,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return { outcome: 'matched', matchId: newMatch.id, requestId: reciprocal.id };
       } catch (err) {
         console.error('[chatStore] sendInterest reciprocal error:', err);
-        return { outcome: 'pending' };
+        throw err;
       }
     }
 
@@ -322,6 +348,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const currentUser = useAuthStore.getState().user;
     if (!currentUser) return { outcome: 'existing' };
+    const wasPending = request.status === 'pending';
 
     try {
       await respondToInterestRequest(requestId, decision);
@@ -336,7 +363,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
 
       // Accepted → create match
-      const dbMatch = await createMatch(currentUser.id, request.fromUserId);
+      let dbMatch: DbMatch;
+      try {
+        dbMatch = await createMatch(requestId);
+      } catch (matchError) {
+        if (wasPending) {
+          try {
+            await respondToInterestRequest(requestId, 'pending');
+          } catch (rollbackError) {
+            console.error('[chatStore] respondToInterest rollback error:', rollbackError);
+          }
+        }
+        throw matchError;
+      }
 
       let profileCache = get().profileCache;
       if (!profileCache[request.fromUserId]) {

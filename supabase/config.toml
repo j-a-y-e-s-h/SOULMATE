@@ -1,0 +1,6 @@
+[functions.create-match]
+# The function verifies the caller's bearer token itself via auth.getUser().
+# Disabling gateway JWT verification avoids the "Invalid JWT" rejection we
+# observed with live email/password sessions and keeps the auth check explicit
+# inside the function code.
+verify_jwt = false

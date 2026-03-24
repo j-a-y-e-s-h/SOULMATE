@@ -57,6 +57,8 @@ export default function LoginPage() {
     } else if (result.confirmEmail) {
       toast.info('Please verify your email to finish signing in.');
       navigate(buildPendingVerificationPath(normalizedEmail, redirectTo), { replace: true });
+    } else if (result.deactivated) {
+      setError('');
     } else if (result.notRegistered) {
       setIsNotRegistered(true);
     } else {

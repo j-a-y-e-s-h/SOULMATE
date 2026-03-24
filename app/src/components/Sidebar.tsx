@@ -11,6 +11,8 @@ import {
   LogOut,
   Bell
 } from 'lucide-react';
+import { ProfilePhoto } from '@/components/ProfilePhoto';
+import { getProfilePhotoSrc } from '@/components/profilePhotoUtils';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useChatStore } from '@/store/chatStore';
@@ -42,12 +44,6 @@ export default function Sidebar() {
   const { unreadCount } = useNotificationStore();
   const { profiles, matches, interestRequests } = useChatStore();
   const firstName = user?.name?.split(' ')[0] ?? 'Guest';
-  const initials = user?.name
-    ?.split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() ?? 'SG';
   const currentUserId = user?.id ?? '';
   const pendingInterestCount = interestRequests.filter(
     (request) => request.toUserId === currentUserId && request.status === 'pending',
@@ -101,17 +97,14 @@ export default function Sidebar() {
         </NavLink>
 
         <div className="surface-muted mt-3 flex items-center gap-3 p-3.5">
-          <div className="flex h-[3.25rem] w-[3.25rem] items-center justify-center rounded-2xl bg-[#1f2330] text-sm font-bold text-white">
-            {user?.photos?.[0] ? (
-              <img
-                src={user.photos[0]}
-                alt={user.name}
-                className="h-full w-full rounded-2xl object-cover"
-              />
-            ) : (
-              initials
-            )}
-          </div>
+          <ProfilePhoto
+            src={getProfilePhotoSrc(user?.photos)}
+            name={user?.name ?? 'Guest'}
+            gender={user?.gender}
+            alt={user?.name ?? 'Guest'}
+            className="h-[3.25rem] w-[3.25rem] rounded-2xl bg-[#1f2330]"
+            mediaClassName="h-full w-full rounded-2xl object-cover"
+          />
           <div className="min-w-0">
             <p className="truncate font-semibold text-[#1f2330]">{firstName}</p>
             <p className="truncate text-sm text-[#7a6b5d]">Member</p>

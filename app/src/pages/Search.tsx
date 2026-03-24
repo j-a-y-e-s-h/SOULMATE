@@ -10,6 +10,8 @@ import {
   Briefcase,
   Building,
 } from 'lucide-react';
+import { ProfilePhoto } from '@/components/ProfilePhoto';
+import { getProfilePhotoSrc } from '@/components/profilePhotoUtils';
 import {
   communityOptions,
   dietOptions,
@@ -159,8 +161,8 @@ export default function Search() {
 
       await sendInterest(profileId);
       toast.success(`Interest sent to ${profileName}`);
-    } catch {
-      toast.error('Something went wrong. Please try again.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     }
   };
 
@@ -321,7 +323,14 @@ export default function Search() {
                 return (
                   <article key={profile.id} className="group glass-card overflow-hidden border-none shadow-md hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 bg-white">
                     <div className="aspect-[4/5] relative overflow-hidden">
-                      <img src={profile.photos[0] || '/gallery_1.jpg'} className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                      <ProfilePhoto
+                        src={getProfilePhotoSrc(profile.photos)}
+                        name={profile.name}
+                        gender={profile.gender}
+                        alt={profile.name}
+                        className="h-full w-full"
+                        mediaClassName="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#1f2330] via-transparent to-transparent opacity-80" />
                       
                       <div className="absolute top-4 left-4 flex flex-col gap-2">

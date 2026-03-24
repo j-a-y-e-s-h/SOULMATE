@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { createClient, type User as SupabaseUser } from '@supabase/supabase-js';
+import { createClient, type RealtimeChannel, type User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { buildEmailVerificationRedirect, buildPasswordResetRedirect } from '@/lib/authRedirect';
 import {
@@ -20,12 +20,13 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   requiresEmailVerification: boolean;
+  requiresReactivation: boolean;
   pendingVerificationEmail: string | null;
   isLoading: boolean;
   isInitialized: boolean;
 
   initialize: () => Promise<void>;
-  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string; confirmEmail?: boolean; notRegistered?: boolean }>;
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string; confirmEmail?: boolean; notRegistered?: boolean; deactivated?: boolean }>;
   register: (userData: Partial<User> & { email: string; password: string; redirectTo?: string }) => Promise<{ ok: boolean; error?: string; confirmEmail?: boolean }>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
@@ -47,7 +48,8 @@ interface AuthState {
   resetPassword: (email: string, redirectTo?: string | null) => Promise<{ ok: boolean; error?: string }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>;
   changeEmail: (newEmail: string, currentPassword: string, redirectTo?: string) => Promise<{ ok: boolean; error?: string }>;
-  deleteAccount: () => Promise<{ ok: boolean; error?: string }>;
+  deactivateAccount: (currentPassword: string) => Promise<{ ok: boolean; error?: string; message?: string }>;
+  reactivateAccount: () => Promise<{ ok: boolean; error?: string }>;
 }
 
 const PENDING_VERIFICATION_EMAIL_KEY = 'pendingVerificationEmail';
@@ -79,10 +81,16 @@ function buildPendingProfile(userData: Partial<User>) {
   };
 }
 
-async function fetchProfile(userId: string, email: string): Promise<User | null> {
+interface ProfileRecord {
+  profile: User;
+  isActive: boolean;
+  deactivatedAt: string | null;
+}
+
+async function fetchProfileRecord(userId: string, email: string): Promise<ProfileRecord | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('profile_data')
+    .select('profile_data, is_active, deactivated_at')
     .eq('id', userId)
     .maybeSingle();
 
@@ -101,8 +109,13 @@ async function fetchProfile(userId: string, email: string): Promise<User | null>
       .eq('id', userId);
   }
 
-  return normalizedProfile;
+  return {
+    profile: normalizedProfile,
+    isActive: data.is_active ?? true,
+    deactivatedAt: data.deactivated_at ?? null,
+  };
 }
+
 
 async function persistProfile(userId: string, profileData: User) {
   const { error } = await supabase
@@ -129,7 +142,20 @@ async function upsertProfile(userId: string, email: string, profileData: User) {
   }
 }
 
-async function createVerifiedProfile(authUser: SupabaseUser) {
+async function upsertProfileWithRetry(userId: string, email: string, profileData: User) {
+  try {
+    await upsertProfile(userId, email, profileData);
+  } catch {
+    try {
+      await upsertProfile(userId, email, profileData);
+    } catch {
+      await supabase.auth.signOut({ scope: 'local' });
+      throw new Error('Account setup failed, please try again');
+    }
+  }
+}
+
+async function createVerifiedProfile(authUser: SupabaseUser): Promise<ProfileRecord> {
   const email = authUser.email ?? '';
   const pendingProfile = getPendingProfileFromAuthUser(authUser);
   const profile = createDefaultUser(email, {
@@ -140,36 +166,130 @@ async function createVerifiedProfile(authUser: SupabaseUser) {
   });
 
   await upsertProfile(authUser.id, email, profile);
-  return profile;
+  return {
+    profile,
+    isActive: true,
+    deactivatedAt: null,
+  };
 }
 
-async function resolveSignedInProfile(authUser: SupabaseUser) {
+async function resolveSignedInProfile(authUser: SupabaseUser): Promise<ProfileRecord> {
   const email = authUser.email ?? '';
-  const profile = await fetchProfile(authUser.id, email);
-  if (!profile) return createVerifiedProfile(authUser);
+  const profileRecord = await fetchProfileRecord(authUser.id, email);
+  if (!profileRecord) return createVerifiedProfile(authUser);
 
   // Supabase has confirmed the email but our profile still says unverified — sync it
-  if (authUser.email_confirmed_at && isEmailVerificationPending(profile)) {
+  if (authUser.email_confirmed_at && isEmailVerificationPending(profileRecord.profile)) {
     const syncedProfile = createDefaultUser(email, {
-      ...profile,
-      accountStatus: buildVerifiedEmailVerificationStatus(profile.accountStatus),
+      ...profileRecord.profile,
+      accountStatus: buildVerifiedEmailVerificationStatus(profileRecord.profile.accountStatus),
     });
     await upsertProfile(authUser.id, email, syncedProfile);
-    return syncedProfile;
+    return {
+      ...profileRecord,
+      profile: syncedProfile,
+    };
   }
 
-  return profile;
+  return profileRecord;
 }
 
 // Single subscription reference — prevents duplicate listeners when initialize() is called
 // from multiple places (App.tsx, VerifyEmailPage, etc.)
 let _authSub: { unsubscribe: () => void } | null = null;
+// Realtime channel for detecting profile deletion / verification changes while logged in
+let _profileChannel: RealtimeChannel | null = null;
+
+function unsubscribeProfileChannel() {
+  if (_profileChannel) {
+    supabase.removeChannel(_profileChannel);
+    _profileChannel = null;
+  }
+}
+
+function subscribeToProfileChanges(userId: string) {
+  // Avoid duplicate subscriptions
+  unsubscribeProfileChannel();
+
+  _profileChannel = supabase
+    .channel(`profile-watch-${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${userId}`,
+      },
+      async () => {
+        // Profile was deleted from DB — force sign out immediately
+        await supabase.auth.signOut({ scope: 'local' });
+        rememberPendingVerificationEmail(null);
+        unsubscribeProfileChannel();
+        useAuthStore.setState({
+          user: null,
+          isAuthenticated: false,
+          requiresEmailVerification: false,
+          requiresReactivation: false,
+          pendingVerificationEmail: null,
+        });
+      },
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${userId}`,
+      },
+      (payload) => {
+        const profileRow = payload.new as {
+          profile_data?: Partial<User>;
+          is_active?: boolean | null;
+        };
+        const profileData = profileRow?.profile_data;
+
+        if (profileRow?.is_active === false) {
+          const email = profileData?.email || useAuthStore.getState().user?.email || '';
+          const nextUser = profileData
+            ? createDefaultUser(email, { ...profileData, id: userId, email })
+            : useAuthStore.getState().user;
+
+          rememberPendingVerificationEmail(null);
+          useAuthStore.setState({
+            user: nextUser ?? null,
+            isAuthenticated: false,
+            requiresEmailVerification: false,
+            requiresReactivation: true,
+            pendingVerificationEmail: null,
+            isLoading: false,
+          });
+          return;
+        }
+
+        // If profile_data was updated and emailVerified was flipped to false, force re-verification
+        if (profileData?.accountStatus?.emailVerified === false) {
+          const email = profileData.email || useAuthStore.getState().user?.email || '';
+          rememberPendingVerificationEmail(email);
+          useAuthStore.setState({
+            isAuthenticated: false,
+            requiresEmailVerification: true,
+            requiresReactivation: false,
+            pendingVerificationEmail: email,
+          });
+        }
+      },
+    )
+    .subscribe();
+}
 
 export const useAuthStore = create<AuthState>()((set, get) => {
   const buildSignedOutState = () => ({
     user: null,
     isAuthenticated: false,
     requiresEmailVerification: false,
+    requiresReactivation: false,
     pendingVerificationEmail: null,
   });
 
@@ -230,6 +350,7 @@ export const useAuthStore = create<AuthState>()((set, get) => {
   };
 
   const clearLocalAuthSession = async () => {
+    unsubscribeProfileChannel();
     await supabase.auth.signOut({ scope: 'local' });
     rememberPendingVerificationEmail(null);
     set(buildSignedOutState());
@@ -300,10 +421,75 @@ export const useAuthStore = create<AuthState>()((set, get) => {
     }
   };
 
+  const applyResolvedProfileState = (
+    authUser: SupabaseUser,
+    resolvedProfile: ProfileRecord,
+    options?: { isInitialized?: boolean },
+  ) => {
+    const email = authUser.email ?? resolvedProfile.profile.email;
+    const nextState = options?.isInitialized === undefined ? {} : { isInitialized: options.isInitialized };
+
+    if (isEmailVerificationPending(resolvedProfile.profile)) {
+      unsubscribeProfileChannel();
+      rememberPendingVerificationEmail(email);
+      set({
+        user: resolvedProfile.profile,
+        isAuthenticated: false,
+        requiresEmailVerification: true,
+        requiresReactivation: false,
+        pendingVerificationEmail: email,
+        isLoading: false,
+        ...nextState,
+      });
+      return;
+    }
+
+    if (!resolvedProfile.isActive) {
+      unsubscribeProfileChannel();
+      rememberPendingVerificationEmail(null);
+      set({
+        user: resolvedProfile.profile,
+        isAuthenticated: false,
+        requiresEmailVerification: false,
+        requiresReactivation: true,
+        pendingVerificationEmail: null,
+        isLoading: false,
+        ...nextState,
+      });
+      return;
+    }
+
+    rememberPendingVerificationEmail(null);
+    subscribeToProfileChanges(authUser.id);
+    set({
+      user: resolvedProfile.profile,
+      isAuthenticated: true,
+      requiresEmailVerification: false,
+      requiresReactivation: false,
+      pendingVerificationEmail: null,
+      isLoading: false,
+      ...nextState,
+    });
+  };
+
+  const finalizeAccountSetupFailure = (error: unknown) => {
+    rememberPendingVerificationEmail(null);
+    set({
+      ...buildSignedOutState(),
+      isLoading: false,
+    });
+
+    return {
+      ok: false as const,
+      error: error instanceof Error ? error.message : 'Account setup failed, please try again',
+    };
+  };
+
   return ({
     user: null,
     isAuthenticated: false,
     requiresEmailVerification: false,
+    requiresReactivation: false,
     pendingVerificationEmail: null,
     isLoading: true,
     isInitialized: false,
@@ -313,34 +499,15 @@ export const useAuthStore = create<AuthState>()((set, get) => {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (session?.user) {
-      const profile = await resolveSignedInProfile(session.user);
-      if (isEmailVerificationPending(profile)) {
-        rememberPendingVerificationEmail(session.user.email ?? profile.email);
-        set({
-          user: profile,
-          isAuthenticated: false,
-          requiresEmailVerification: true,
-          pendingVerificationEmail: session.user.email ?? profile.email,
-          isLoading: false,
-          isInitialized: true,
-        });
-      } else {
-        rememberPendingVerificationEmail(null);
-        set({
-          user: profile,
-          isAuthenticated: true,
-          requiresEmailVerification: false,
-          pendingVerificationEmail: null,
-          isLoading: false,
-          isInitialized: true,
-        });
-      }
+      const profileRecord = await resolveSignedInProfile(session.user);
+      applyResolvedProfileState(session.user, profileRecord, { isInitialized: true });
     } else {
       const pendingVerificationEmail = sessionStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY);
       set({
         user: null,
         isAuthenticated: false,
         requiresEmailVerification: !!pendingVerificationEmail,
+        requiresReactivation: false,
         pendingVerificationEmail,
         isLoading: false,
         isInitialized: true,
@@ -357,38 +524,19 @@ export const useAuthStore = create<AuthState>()((set, get) => {
         // where fetchProfile returns null (profile not yet written) and clears isAuthenticated.
         if (get().user?.id === session.user.id) return;
         // If login() / register() is currently in progress (isLoading=true), skip — they own
-        // the auth flow and will handle profile creation / notRegistered themselves.
+        // the auth flow and will handle profile creation / inactive-account prompts themselves.
         if (get().isLoading) return;
 
-        const profile = await resolveSignedInProfile(session.user);
-        if (profile) {
-          if (isEmailVerificationPending(profile)) {
-            rememberPendingVerificationEmail(session.user.email ?? profile.email);
-            set({
-              user: profile,
-              isAuthenticated: false,
-              requiresEmailVerification: true,
-              pendingVerificationEmail: session.user.email ?? profile.email,
-              isLoading: false,
-            });
-          } else {
-            rememberPendingVerificationEmail(null);
-            set({
-              user: profile,
-              isAuthenticated: true,
-              requiresEmailVerification: false,
-              pendingVerificationEmail: null,
-              isLoading: false,
-            });
-          }
-        }
-        // If profile is still null, login() will handle creating it — don't override state.
+        const profileRecord = await resolveSignedInProfile(session.user);
+        applyResolvedProfileState(session.user, profileRecord);
       } else if (event === 'SIGNED_OUT') {
+        unsubscribeProfileChannel();
         const pendingVerificationEmail = sessionStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY);
         set({
           user: null,
           isAuthenticated: false,
           requiresEmailVerification: !!pendingVerificationEmail,
+          requiresReactivation: false,
           pendingVerificationEmail,
           isLoading: false,
         });
@@ -415,17 +563,8 @@ export const useAuthStore = create<AuthState>()((set, get) => {
       return { ok: false, error: 'Invalid email or password. Please check your credentials.' };
     }
 
-    // Check if the user has completed registration (profile exists in our DB).
-    // If not, they exist in Auth but never went through our registration flow —
-    // sign them out and redirect to register instead of auto-creating a bare profile.
-    const existingProfile = await fetchProfile(data.user.id, data.user.email ?? normalizedEmail);
-    if (!existingProfile) {
-      await supabase.auth.signOut({ scope: 'local' });
-      set({ isLoading: false });
-      return { ok: false, notRegistered: true };
-    }
-
-    const profile = await resolveSignedInProfile(data.user);
+    const profileRecord = await resolveSignedInProfile(data.user);
+    const profile = profileRecord.profile;
 
     if (isEmailVerificationPending(profile)) {
       await supabase.auth.signOut({ scope: 'local' });
@@ -434,6 +573,7 @@ export const useAuthStore = create<AuthState>()((set, get) => {
         user: profile,
         isAuthenticated: false,
         requiresEmailVerification: true,
+        requiresReactivation: false,
         pendingVerificationEmail: normalizedEmail,
         isLoading: false,
       });
@@ -444,14 +584,20 @@ export const useAuthStore = create<AuthState>()((set, get) => {
       };
     }
 
-    rememberPendingVerificationEmail(null);
-    set({
-      user: profile,
-      isAuthenticated: true,
-      requiresEmailVerification: false,
-      pendingVerificationEmail: null,
-      isLoading: false,
-    });
+    if (!profileRecord.isActive) {
+      rememberPendingVerificationEmail(null);
+      set({
+        user: profile,
+        isAuthenticated: false,
+        requiresEmailVerification: false,
+        requiresReactivation: true,
+        pendingVerificationEmail: null,
+        isLoading: false,
+      });
+      return { ok: false, deactivated: true };
+    }
+
+    applyResolvedProfileState(data.user, profileRecord);
     return { ok: true };
   },
 
@@ -474,56 +620,11 @@ export const useAuthStore = create<AuthState>()((set, get) => {
 
     if (error) {
       const isAlreadyExists =
-        (error as any)?.code === 'user_already_exists' ||
+        (error as { code?: string })?.code === 'user_already_exists' ||
         error.message?.toLowerCase().includes('already registered') ||
         error.message?.toLowerCase().includes('already exists');
 
       if (isAlreadyExists) {
-        // isLoading is still true here so the onAuthStateChange SIGNED_IN guard stays active.
-        // Attempt orphaned-account recovery: user exists in Auth but may have no profile.
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password: normalizedUserData.password as string,
-        });
-
-        if (!signInError && signInData.user) {
-          const existingProfile = await fetchProfile(signInData.user.id, normalizedEmail);
-          if (!existingProfile) {
-            const newUser = createDefaultUser(normalizedEmail, {
-              ...pendingProfile,
-              id: signInData.user.id,
-              name: normalizedUserData.name || normalizedEmail.split('@')[0],
-              photos: [],
-              interests: ['Travel', 'Family time'],
-              accountStatus: buildPendingEmailVerificationStatus(),
-            });
-            const { password: _pw, ...profileData } = newUser as typeof newUser & { password?: string };
-            await upsertProfile(signInData.user.id, normalizedEmail, profileData);
-
-            const verificationResult = await sendEmailVerificationLink(normalizedEmail, normalizedUserData.redirectTo);
-            await supabase.auth.signOut({ scope: 'local' });
-
-            rememberPendingVerificationEmail(normalizedEmail);
-            set({
-              user: null,
-              isAuthenticated: false,
-              requiresEmailVerification: true,
-              pendingVerificationEmail: normalizedEmail,
-              isLoading: false,
-            });
-
-            if (!verificationResult.ok) {
-              return {
-                ok: false,
-                error: `Profile set up, but we could not send the verification email. ${verificationResult.error}`,
-                confirmEmail: true,
-              };
-            }
-            return { ok: true, confirmEmail: true };
-          }
-          await supabase.auth.signOut({ scope: 'local' });
-        }
-
         set({ isLoading: false });
         return { ok: false, error: 'An account with this email already exists. Try signing in.' };
       }
@@ -541,54 +642,6 @@ export const useAuthStore = create<AuthState>()((set, get) => {
       // When "Confirm email" is ON, Supabase silently returns the existing user with
       // identities:[] instead of an error — this detects that case.
       if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
-
-        // Check if this is an orphaned account: exists in Supabase Auth but has no profile
-        // in our DB (e.g. profile was deleted). Try signing in to verify ownership, then
-        // create the missing profile so the user can complete registration normally.
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password: normalizedUserData.password as string,
-        });
-        if (!signInError && signInData.user) {
-          const existingProfile = await fetchProfile(signInData.user.id, normalizedEmail);
-          if (!existingProfile) {
-            // Orphaned account — create the profile from the form data they just entered
-            const newUser = createDefaultUser(normalizedEmail, {
-              ...pendingProfile,
-              id: signInData.user.id,
-              name: normalizedUserData.name || normalizedEmail.split('@')[0],
-              photos: [],
-              interests: ['Travel', 'Family time'],
-              accountStatus: buildPendingEmailVerificationStatus(),
-            });
-            const { password: _pw, ...profileData } = newUser as typeof newUser & { password?: string };
-            await upsertProfile(signInData.user.id, normalizedEmail, profileData);
-
-            const verificationResult = await sendEmailVerificationLink(normalizedEmail, normalizedUserData.redirectTo);
-            await supabase.auth.signOut({ scope: 'local' });
-
-            rememberPendingVerificationEmail(normalizedEmail);
-            set({
-              user: null,
-              isAuthenticated: false,
-              requiresEmailVerification: true,
-              pendingVerificationEmail: normalizedEmail,
-              isLoading: false,
-            });
-
-            if (!verificationResult.ok) {
-              return {
-                ok: false,
-                error: `Profile set up, but we could not send the verification email. ${verificationResult.error}`,
-                confirmEmail: true,
-              };
-            }
-            return { ok: true, confirmEmail: true };
-          }
-          // Profile exists — just sign them back out and tell them to sign in
-          await supabase.auth.signOut({ scope: 'local' });
-        }
-
         set({ isLoading: false });
         return { ok: false, error: 'An account with this email already exists. Try signing in.' };
       }
@@ -598,6 +651,7 @@ export const useAuthStore = create<AuthState>()((set, get) => {
         user: null,
         isAuthenticated: false,
         requiresEmailVerification: true,
+        requiresReactivation: false,
         pendingVerificationEmail: normalizedEmail,
         isLoading: false,
       });
@@ -613,9 +667,14 @@ export const useAuthStore = create<AuthState>()((set, get) => {
       accountStatus: buildPendingEmailVerificationStatus(),
     });
 
-    const { password: _password, ...profileData } = newUser as User & { password?: string };
+    const profileData: Partial<User> & { password?: string } = { ...newUser };
+    delete profileData.password;
 
-    await upsertProfile(data.user.id, normalizedEmail, profileData);
+    try {
+      await upsertProfileWithRetry(data.user.id, normalizedEmail, profileData as User);
+    } catch (accountSetupError) {
+      return finalizeAccountSetupFailure(accountSetupError);
+    }
 
     const verificationResult = await sendEmailVerificationLink(normalizedEmail, normalizedUserData.redirectTo);
     await supabase.auth.signOut({ scope: 'local' });
@@ -625,6 +684,7 @@ export const useAuthStore = create<AuthState>()((set, get) => {
       user: null,
       isAuthenticated: false,
       requiresEmailVerification: true,
+      requiresReactivation: false,
       pendingVerificationEmail: normalizedEmail,
       isLoading: false,
     });
@@ -641,6 +701,7 @@ export const useAuthStore = create<AuthState>()((set, get) => {
   },
 
   logout: async () => {
+    unsubscribeProfileChannel();
     const { error } = await supabase.auth.signOut();
     if (error) {
       await supabase.auth.signOut({ scope: 'local' });
@@ -848,13 +909,92 @@ export const useAuthStore = create<AuthState>()((set, get) => {
     return { ok: true };
   },
 
-  deleteAccount: async () => {
+  deactivateAccount: async (currentPassword: string) => {
     const user = get().user;
     if (!user) return { ok: false, error: 'Not authenticated' };
-    return {
-      ok: false,
-      error: 'Permanent account deletion is not enabled in this build yet. Use log out for now.',
-    };
+
+    const sessionCheck = await ensureFreshAuthSession();
+    if (!sessionCheck.ok) return sessionCheck;
+
+    const reauthResult = await reauthenticateSensitiveAction(user.email, currentPassword);
+    if (!reauthResult.ok) return reauthResult;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        is_active: false,
+        deactivated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id);
+
+    if (error) {
+      if (isSessionErrorMessage(error.message)) {
+        await clearLocalAuthSession();
+        return {
+          ok: false,
+          error: 'Your session expired while deactivating your account. Please sign in again and retry.',
+        };
+      }
+
+      return { ok: false, error: error.message };
+    }
+
+    unsubscribeProfileChannel();
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      await supabase.auth.signOut({ scope: 'local' });
+    }
+
+    rememberPendingVerificationEmail(null);
+    set(buildSignedOutState());
+
+    return { ok: true, message: 'Your account has been deactivated' };
+  },
+
+  reactivateAccount: async () => {
+    const user = get().user;
+    if (!user) return { ok: false, error: 'Not authenticated' };
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) {
+      await clearLocalAuthSession();
+      return {
+        ok: false,
+        error: 'Your session has expired. Please sign in again to continue.',
+      };
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        is_active: true,
+        deactivated_at: null,
+      })
+      .eq('id', user.id);
+
+    if (error) {
+      if (isSessionErrorMessage(error.message)) {
+        await clearLocalAuthSession();
+        return {
+          ok: false,
+          error: 'Your session expired while reactivating your account. Please sign in again.',
+        };
+      }
+
+      return { ok: false, error: error.message };
+    }
+
+    const resolvedProfile = await resolveSignedInProfile(session.user);
+    applyResolvedProfileState(session.user, {
+      ...resolvedProfile,
+      isActive: true,
+      deactivatedAt: null,
+    });
+
+    return { ok: true };
   },
   });
 });

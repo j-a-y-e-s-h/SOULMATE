@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   Clock,
 } from 'lucide-react';
+import { ProfilePhoto } from '@/components/ProfilePhoto';
+import { getProfilePhotoSrc } from '@/components/profilePhotoUtils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getVerificationLabel } from '@/lib/matchmaking';
 import { useAuthStore } from '@/store/authStore';
@@ -171,10 +173,13 @@ export default function Matches() {
             >
               {/* Profile Image View */}
               <div className="relative aspect-[4/3] w-full overflow-hidden">
-                <img 
-                  src={match.matchedUser.photos[0] || '/gallery_1.jpg'} 
-                  alt={match.matchedUser.name} 
-                  className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110" 
+                <ProfilePhoto
+                  src={getProfilePhotoSrc(match.matchedUser.photos)}
+                  name={match.matchedUser.name}
+                  gender={match.matchedUser.gender}
+                  alt={match.matchedUser.name}
+                  className="h-full w-full"
+                  mediaClassName="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#1f2330] via-transparent to-transparent opacity-90" />
                 
