@@ -28,24 +28,43 @@ Open the repository on GitHub and configure branch protection or a ruleset for `
 ## One-Time Direct Push Setup
 
 The `Main Branch Guard` workflow no longer hard-codes a single username.
-It always allows the repository owner and can also allow extra users or bots from one repository variable.
+It always allows the repository owner.
+It can also allow extra users or bots from a repo file and, optionally, a repository variable.
 
-Set this once in GitHub if your pushes come from an app, bot, or a second account:
+### Easiest Option: Repo Allowlist File
 
-1. Open `GitHub -> SOULMATE -> Settings -> Secrets and variables -> Actions`.
-2. Open the `Variables` tab.
-3. Create a new repository variable named `MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST`.
-4. Enter a comma-separated list of extra actors you want to allow.
+Edit `.github/main-branch-direct-push-allowlist.txt` and put one GitHub actor per line.
+
+Current allowlist file entries:
+
+- `jke9`
 
 Examples:
 
-- Only the repository owner can push directly: leave the variable empty or do not create it.
-- Allow the owner and GitHub Actions bot: `github-actions[bot]`
-- Allow the owner, Dependabot, and another account: `dependabot[bot], your-second-username`
+- Allow the owner and GitHub Actions bot:
+  `github-actions[bot]`
+- Allow the owner, Dependabot, and another account:
+  `dependabot[bot]`
+  `your-second-username`
+
+### Optional Option: GitHub Repository Variable
+
+If you prefer GitHub settings, you can also set this once in:
+
+`GitHub -> SOULMATE -> Settings -> Secrets and variables -> Actions -> Variables`
+
+Create:
+
+- `MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST`
+
+Use a comma-separated value such as:
+
+- `github-actions[bot], dependabot[bot], your-second-username`
 
 Important notes:
 
 - The repository owner is always allowed automatically.
+- The workflow reads `.github/main-branch-direct-push-allowlist.txt` on every push.
 - If this repository is moved into an organization, set `MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST` explicitly because the org name is not the same as a user who pushes code.
 - This workflow reports a bad direct push after it happens. To actually stop direct pushes before they land, use GitHub branch protection or rulesets.
 
@@ -61,6 +80,7 @@ Important notes:
 
 - Runs on pushes to `main` or `master`.
 - Passes automatically for the repository owner.
+- Passes for any actor listed in `.github/main-branch-direct-push-allowlist.txt`.
 - Can also pass for extra usernames or bots listed in `MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST`.
 - Fails for anyone else and explains how to fix the allowlist.
 - Works best together with branch protection.
@@ -70,7 +90,7 @@ Important notes:
 Check these first:
 
 1. Look at the failed run summary and note the `Push actor`.
-2. If that actor should be allowed, add it to `MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST`.
+2. If that actor should be allowed, add it to `.github/main-branch-direct-push-allowlist.txt` or `MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST`.
 3. If the actor should not push directly, switch to a feature branch and open a pull request.
 4. If you changed repository ownership or reviewers, also update `.github/CODEOWNERS`.
 

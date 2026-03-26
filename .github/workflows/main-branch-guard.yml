@@ -17,30 +17,65 @@ jobs:
       PUSH_ACTOR: ${{ github.actor }}
       PUSH_REF: ${{ github.ref_name }}
       EXTRA_DIRECT_PUSH_ALLOWLIST: ${{ vars.MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST }}
+      ALLOWLIST_FILE: .github/main-branch-direct-push-allowlist.txt
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Check direct push allowlist
         shell: bash
         run: |
           set -euo pipefail
 
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+
+          declare -a allowed_entries
+          allowed_entries=("$REPO_OWNER")
+
           normalized_extra="${EXTRA_DIRECT_PUSH_ALLOWLIST//$'\r'/}"
           normalized_extra="${normalized_extra//$'\n'/,}"
-          has_extra="${normalized_extra//[[:space:],]/}"
+          IFS=',' read -ra raw_variable_entries <<< "$normalized_extra"
+          for entry in "${raw_variable_entries[@]}"; do
+            candidate="$(trim "$entry")"
+            if [ -n "$candidate" ]; then
+              allowed_entries+=("$candidate")
+            fi
+          done
 
-          if [ -n "$has_extra" ]; then
-            allowed_actors="$REPO_OWNER,$normalized_extra"
-          else
-            allowed_actors="$REPO_OWNER"
+          if [ -f "$ALLOWLIST_FILE" ]; then
+            while IFS= read -r line || [ -n "$line" ]; do
+              candidate="$(trim "${line%%#*}")"
+              if [ -n "$candidate" ]; then
+                allowed_entries+=("$candidate")
+              fi
+            done < "$ALLOWLIST_FILE"
           fi
 
+          declare -A seen_entries
+          declare -a unique_allowed_entries
+          for entry in "${allowed_entries[@]}"; do
+            if [ -z "${seen_entries[$entry]+x}" ]; then
+              seen_entries["$entry"]=1
+              unique_allowed_entries+=("$entry")
+            fi
+          done
+
+          allowed_actors=""
           is_allowed="false"
-          IFS=',' read -ra raw_entries <<< "$allowed_actors"
-          for entry in "${raw_entries[@]}"; do
-            candidate="${entry#"${entry%%[![:space:]]*}"}"
-            candidate="${candidate%"${candidate##*[![:space:]]}"}"
-            if [ -n "$candidate" ] && [ "$candidate" = "$PUSH_ACTOR" ]; then
+          for candidate in "${unique_allowed_entries[@]}"; do
+            if [ -n "$allowed_actors" ]; then
+              allowed_actors="$allowed_actors, $candidate"
+            else
+              allowed_actors="$candidate"
+            fi
+
+            if [ "$candidate" = "$PUSH_ACTOR" ]; then
               is_allowed="true"
-              break
             fi
           done
 
@@ -58,7 +93,7 @@ jobs:
           fi
 
           echo "Direct pushes to $PUSH_REF are limited to: $allowed_actors."
-          echo "If you need to allow another user or bot, add the repository variable MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST."
-          echo "Example value: $REPO_OWNER, github-actions[bot], dependabot[bot]"
+          echo "Add more actors in $ALLOWLIST_FILE or the repository variable MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST."
+          echo "Example file entries: github-actions[bot] and dependabot[bot]"
           echo "Otherwise, push to a feature branch and open a pull request."
           exit 1
