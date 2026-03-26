@@ -35,17 +35,21 @@ It can also allow extra users or bots from a repo file and, optionally, a reposi
 
 Edit `.github/main-branch-direct-push-allowlist.txt` and put one GitHub actor per line.
 
-Current allowlist file entries:
+For the workflow you asked for:
 
-- `jke9`
+- leave this file empty for normal human accounts
+- only add bots or special automation users if you truly want them to push directly
+- do not add `jke9` if you want `jke9 -> pull request -> j-a-y-e-s-h review -> merge`
 
 Examples:
 
+- PR-only flow for humans:
+  leave the file empty
 - Allow the owner and GitHub Actions bot:
   `github-actions[bot]`
-- Allow the owner, Dependabot, and another account:
+- Allow the owner, Dependabot, and another automation actor:
   `dependabot[bot]`
-  `your-second-username`
+  `your-bot-account`
 
 ### Optional Option: GitHub Repository Variable
 
@@ -65,6 +69,7 @@ Important notes:
 
 - The repository owner is always allowed automatically.
 - The workflow reads `.github/main-branch-direct-push-allowlist.txt` on every push.
+- If `jke9` pushes directly to `main`, the workflow will fail.
 - If this repository is moved into an organization, set `MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST` explicitly because the org name is not the same as a user who pushes code.
 - This workflow reports a bad direct push after it happens. To actually stop direct pushes before they land, use GitHub branch protection or rulesets.
 
@@ -96,8 +101,18 @@ Check these first:
 
 ## Recommended Flow
 
-1. Other users push to feature branches.
-2. They open a pull request to `main`.
-3. GitHub verifies the branch with `App Build`.
-4. Owner review is required because of `CODEOWNERS`.
-5. Owner merges after verification.
+1. `jke9` pushes to a feature branch, not `main`.
+2. `jke9` opens a pull request into `main`.
+3. GitHub runs `App Build` on the branch and pull request.
+4. `@j-a-y-e-s-h` reviews because of `CODEOWNERS`.
+5. `@j-a-y-e-s-h` merges after review and passing checks.
+
+## Required GitHub Protection For This Flow
+
+To make this truly enforceable on GitHub, configure branch protection or a ruleset on `main`:
+
+1. Require a pull request before merging.
+2. Require review from Code Owners.
+3. Require status checks to pass before merging.
+4. Select `App Build` as a required status check.
+5. Do not allow `jke9` to bypass the rule or push directly to `main`.

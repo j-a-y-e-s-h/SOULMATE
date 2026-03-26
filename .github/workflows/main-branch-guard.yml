@@ -95,5 +95,5 @@ jobs:
           echo "Direct pushes to $PUSH_REF are limited to: $allowed_actors."
           echo "Add more actors in $ALLOWLIST_FILE or the repository variable MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST."
           echo "Example file entries: github-actions[bot] and dependabot[bot]"
-          echo "Otherwise, push to a feature branch and open a pull request."
+          echo "Otherwise, push to a feature branch and open a pull request for @j-a-y-e-s-h to review and merge."
           exit 1

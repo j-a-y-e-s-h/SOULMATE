@@ -1,4 +1,3 @@
 # One GitHub actor per line.
 # The repository owner is allowed automatically.
 # Add only extra users or bots that should be allowed to push directly.
-jke9
