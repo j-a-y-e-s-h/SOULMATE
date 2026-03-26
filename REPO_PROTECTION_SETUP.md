@@ -25,6 +25,30 @@ Open the repository on GitHub and configure branch protection or a ruleset for `
 4. Select `App Build` as a required status check.
 5. Restrict direct pushes to `main` to the owner only, if available on your plan.
 
+## One-Time Direct Push Setup
+
+The `Main Branch Guard` workflow no longer hard-codes a single username.
+It always allows the repository owner and can also allow extra users or bots from one repository variable.
+
+Set this once in GitHub if your pushes come from an app, bot, or a second account:
+
+1. Open `GitHub -> SOULMATE -> Settings -> Secrets and variables -> Actions`.
+2. Open the `Variables` tab.
+3. Create a new repository variable named `MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST`.
+4. Enter a comma-separated list of extra actors you want to allow.
+
+Examples:
+
+- Only the repository owner can push directly: leave the variable empty or do not create it.
+- Allow the owner and GitHub Actions bot: `github-actions[bot]`
+- Allow the owner, Dependabot, and another account: `dependabot[bot], your-second-username`
+
+Important notes:
+
+- The repository owner is always allowed automatically.
+- If this repository is moved into an organization, set `MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST` explicitly because the org name is not the same as a user who pushes code.
+- This workflow reports a bad direct push after it happens. To actually stop direct pushes before they land, use GitHub branch protection or rulesets.
+
 ## What The Workflows Do
 
 ### `App Build`
@@ -36,8 +60,19 @@ Open the repository on GitHub and configure branch protection or a ruleset for `
 ### `Main Branch Guard`
 
 - Runs on pushes to `main` or `master`.
-- Fails if the direct push actor is not `j-a-y-e-s-h`.
-- This works best together with branch protection.
+- Passes automatically for the repository owner.
+- Can also pass for extra usernames or bots listed in `MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST`.
+- Fails for anyone else and explains how to fix the allowlist.
+- Works best together with branch protection.
+
+## If You Still See This Fail
+
+Check these first:
+
+1. Look at the failed run summary and note the `Push actor`.
+2. If that actor should be allowed, add it to `MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST`.
+3. If the actor should not push directly, switch to a feature branch and open a pull request.
+4. If you changed repository ownership or reviewers, also update `.github/CODEOWNERS`.
 
 ## Recommended Flow
 

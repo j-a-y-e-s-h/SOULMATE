@@ -11,11 +11,54 @@ permissions:
 
 jobs:
   owner-only-direct-push:
-    if: github.actor != 'j-a-y-e-s-h'
     runs-on: ubuntu-latest
+    env:
+      REPO_OWNER: ${{ github.repository_owner }}
+      PUSH_ACTOR: ${{ github.actor }}
+      PUSH_REF: ${{ github.ref_name }}
+      EXTRA_DIRECT_PUSH_ALLOWLIST: ${{ vars.MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST }}
     steps:
-      - name: Block non-owner direct pushes
+      - name: Check direct push allowlist
+        shell: bash
         run: |
-          echo "Direct pushes to the protected branch must come from @j-a-y-e-s-h."
-          echo "Use a pull request and let the owner review and merge it."
+          set -euo pipefail
+
+          normalized_extra="${EXTRA_DIRECT_PUSH_ALLOWLIST//$'\r'/}"
+          normalized_extra="${normalized_extra//$'\n'/,}"
+          has_extra="${normalized_extra//[[:space:],]/}"
+
+          if [ -n "$has_extra" ]; then
+            allowed_actors="$REPO_OWNER,$normalized_extra"
+          else
+            allowed_actors="$REPO_OWNER"
+          fi
+
+          is_allowed="false"
+          IFS=',' read -ra raw_entries <<< "$allowed_actors"
+          for entry in "${raw_entries[@]}"; do
+            candidate="${entry#"${entry%%[![:space:]]*}"}"
+            candidate="${candidate%"${candidate##*[![:space:]]}"}"
+            if [ -n "$candidate" ] && [ "$candidate" = "$PUSH_ACTOR" ]; then
+              is_allowed="true"
+              break
+            fi
+          done
+
+          {
+            echo "## Main branch guard"
+            echo ""
+            echo "- Branch: \`$PUSH_REF\`"
+            echo "- Push actor: \`$PUSH_ACTOR\`"
+            echo "- Allowed direct push actors: \`$allowed_actors\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$is_allowed" = "true" ]; then
+            echo "Direct push allowed for $PUSH_ACTOR."
+            exit 0
+          fi
+
+          echo "Direct pushes to $PUSH_REF are limited to: $allowed_actors."
+          echo "If you need to allow another user or bot, add the repository variable MAIN_BRANCH_DIRECT_PUSH_ALLOWLIST."
+          echo "Example value: $REPO_OWNER, github-actions[bot], dependabot[bot]"
+          echo "Otherwise, push to a feature branch and open a pull request."
           exit 1
